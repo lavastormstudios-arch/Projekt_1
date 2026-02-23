@@ -1,0 +1,39 @@
+# Claude Code local settings
+.claude/
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+.venv/
+venv/
+env/
+
+# App config (contains credentials, machine-specific paths, PIN hash)
+config.ini
+
+# Business data (Excel stores)
+data/entries.xlsx
+data/suppliers.xlsx
+data/export_*.xlsx
+
+# Generated output
+data/invoices/
+data/backups/
+data/documents/
+
+# IDE
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# OS
+Thumbs.db
+.DS_Store
+desktop.ini
