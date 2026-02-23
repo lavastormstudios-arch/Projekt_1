@@ -58,6 +58,7 @@ class ExcelStore:
                 wkz_category=str(data.get("wkz_category", "") or ""),
                 notes=str(data.get("notes", "") or ""),
                 created_at=str(data.get("created_at", "") or ""),
+                invoice_number=str(data.get("invoice_number", "") or ""),
             )
             entries.append(entry)
         wb.close()
@@ -76,7 +77,7 @@ class ExcelStore:
                 e.kickback_articles,
                 e.umsatzbonus_staffeln,
                 e.wkz_is_percentage, e.wkz_percentage,
-                e.wkz_category, e.notes, e.created_at
+                e.wkz_category, e.notes, e.created_at, e.invoice_number
             ])
         wb.save(ENTRIES_FILE)
 

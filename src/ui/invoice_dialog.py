@@ -1,17 +1,20 @@
 import os
 import tkinter as tk
 from tkinter import ttk, messagebox
+from datetime import date
 
-from src.models.enums import EntryType
+from src.models.enums import EntryType, EntryStatus
 from src.services.invoice_service import InvoiceService
 
 
 class InvoiceDialog:
-    def __init__(self, parent, entry, supplier, supplier_service, invoice_service: InvoiceService):
+    def __init__(self, parent, entry, supplier, supplier_service, invoice_service: InvoiceService,
+                 entry_service=None):
         self.entry = entry
         self.supplier = supplier
         self.supplier_service = supplier_service
         self.invoice_service = invoice_service
+        self.entry_service = entry_service
 
         self.dialog = tk.Toplevel(parent)
         self.dialog.title(f"Rechnung erstellen — {entry.supplier_name}")
@@ -232,6 +235,14 @@ class InvoiceDialog:
             )
             return
 
+        # Auto-update entry status after successful generation
+        if self.entry_service:
+            self.entry.status = EntryStatus.ABGERECHNET
+            self.entry.date_billed = date.today()
+            self.entry.invoice_number = context["invoice_number"]
+            self.entry.amount_billed = context["net_raw"]
+            self.entry_service.update(self.entry)
+
         abs_path = os.path.abspath(pdf_path)
         messagebox.showinfo(
             "Rechnung erstellt",
@@ -250,12 +261,14 @@ class InvoiceDialog:
 # ---------------------------------------------------------------------------
 
 class BulkInvoiceDialog:
-    def __init__(self, parent, pairs: list, invoice_service: InvoiceService):
+    def __init__(self, parent, pairs: list, invoice_service: InvoiceService,
+                 entry_service=None):
         """
         pairs: list of (entry, supplier) tuples
         """
         self.pairs = pairs
         self.invoice_service = invoice_service
+        self.entry_service = entry_service
         self._row_data = []   # one dict per entry
 
         self.dialog = tk.Toplevel(parent)
@@ -435,6 +448,14 @@ class BulkInvoiceDialog:
                 )
                 self.invoice_service.generate(entry, supplier, context)
 
+                # Auto-update entry status
+                if self.entry_service:
+                    entry.status = EntryStatus.ABGERECHNET
+                    entry.date_billed = date.today()
+                    entry.invoice_number = context["invoice_number"]
+                    entry.amount_billed = context["net_raw"]
+                    self.entry_service.update(entry)
+
                 inv_num = context.get("invoice_number", "")
                 row_data["status_var"].set(f"  ✓ {inv_num}")
                 created += 1
@@ -463,3 +484,313 @@ class BulkInvoiceDialog:
         folder = os.path.abspath(self.invoice_service.OUTPUT_DIR)
         os.makedirs(folder, exist_ok=True)
         os.startfile(folder)
+
+
+# ---------------------------------------------------------------------------
+# Storno dialog
+# ---------------------------------------------------------------------------
+
+class StornoDialog:
+    def __init__(self, parent, entry, supplier, entry_service, invoice_service: InvoiceService):
+        self.entry = entry
+        self.supplier = supplier
+        self.entry_service = entry_service
+        self.invoice_service = invoice_service
+
+        self.dialog = tk.Toplevel(parent)
+        self.dialog.title(f"Storno erstellen — {entry.supplier_name}")
+        self.dialog.geometry("420x280")
+        self.dialog.resizable(False, False)
+        self.dialog.transient(parent)
+        self.dialog.grab_set()
+
+        self._build()
+
+    def _build(self):
+        outer = ttk.Frame(self.dialog, padding=15)
+        outer.pack(fill=tk.BOTH, expand=True)
+
+        ttk.Label(outer, text="Stornorechnung erstellen", font=("Segoe UI", 12, "bold")).pack(anchor=tk.W, pady=(0, 10))
+
+        g = ttk.Frame(outer)
+        g.pack(fill=tk.X, pady=4)
+
+        def info(label, value, row):
+            ttk.Label(g, text=label, font=("Segoe UI", 9, "bold")).grid(
+                row=row, column=0, sticky=tk.W, pady=3, padx=(0, 10))
+            ttk.Label(g, text=value).grid(row=row, column=1, sticky=tk.W, pady=3)
+
+        info("Lieferant:", self.supplier.name, 0)
+        info("Typ:", self.entry.entry_type.value, 1)
+        info("Original Rechnungs-Nr.:", self.entry.invoice_number or "—", 2)
+        amt_str = f"{self.entry.amount_billed:,.2f} €".replace(",", "X").replace(".", ",").replace("X", ".")
+        info("Originalbetrag (netto):", amt_str, 3)
+
+        ttk.Label(outer,
+                  text="Es wird eine Stornorechnung mit negativen Beträgen erstellt.",
+                  foreground="#555", font=("Segoe UI", 9), wraplength=380).pack(
+            anchor=tk.W, pady=(8, 0))
+
+        ttk.Separator(outer, orient=tk.HORIZONTAL).pack(fill=tk.X, pady=10)
+
+        bf = ttk.Frame(outer)
+        bf.pack(fill=tk.X)
+        ttk.Button(bf, text="Storno erstellen", command=self._on_confirm).pack(side=tk.LEFT, padx=4)
+        ttk.Button(bf, text="Abbrechen", command=self.dialog.destroy).pack(side=tk.LEFT, padx=4)
+
+    def _on_confirm(self):
+        try:
+            context = self.invoice_service.build_context(
+                self.entry, self.supplier,
+                storno_net=self.entry.amount_billed,
+                orig_invoice_number=self.entry.invoice_number,
+            )
+            pdf_path = self.invoice_service.generate(self.entry, self.supplier, context)
+        except FileNotFoundError as exc:
+            messagebox.showerror("Vorlage fehlt", str(exc), parent=self.dialog)
+            return
+        except RuntimeError as exc:
+            messagebox.showerror("Fehler", str(exc), parent=self.dialog)
+            return
+        except Exception as exc:
+            messagebox.showerror("Fehler", f"Storno konnte nicht erstellt werden:\n\n{exc}", parent=self.dialog)
+            return
+
+        self.entry.status = EntryStatus.STORNIERT
+        self.entry_service.update(self.entry)
+
+        abs_path = os.path.abspath(pdf_path)
+        messagebox.showinfo(
+            "Storno erstellt",
+            f"Stornorechnung {context['invoice_number']} gespeichert:\n{abs_path}",
+            parent=self.dialog
+        )
+        try:
+            os.startfile(abs_path)
+        except Exception:
+            pass
+        self.dialog.destroy()
+
+
+# ---------------------------------------------------------------------------
+# Adjust invoice dialog
+# ---------------------------------------------------------------------------
+
+class AdjustInvoiceDialog:
+    def __init__(self, parent, entry, supplier, entry_service, invoice_service: InvoiceService):
+        self.entry = entry
+        self.supplier = supplier
+        self.entry_service = entry_service
+        self.invoice_service = invoice_service
+
+        self.dialog = tk.Toplevel(parent)
+        self.dialog.title(f"Rechnung anpassen — {entry.supplier_name}")
+        self.dialog.geometry("500x480")
+        self.dialog.resizable(False, False)
+        self.dialog.transient(parent)
+        self.dialog.grab_set()
+
+        self._qty_vars = {}
+        self._revenue_var = tk.StringVar()
+        self._amount_var = tk.StringVar()
+        self._vol_var = tk.StringVar()
+        self._new_net_var = tk.StringVar(value="0,00")
+        self._tier_label_var = tk.StringVar(value="–")
+
+        self._build()
+
+    @staticmethod
+    def _fmt(v: float) -> str:
+        return f"{v:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+
+    def _build(self):
+        outer = ttk.Frame(self.dialog, padding=15)
+        outer.pack(fill=tk.BOTH, expand=True)
+
+        ttk.Label(outer, text="Rechnung anpassen", font=("Segoe UI", 12, "bold")).pack(anchor=tk.W, pady=(0, 6))
+
+        # Original invoice info
+        orig_frame = ttk.LabelFrame(outer, text="Ursprüngliche Rechnung", padding=8)
+        orig_frame.pack(fill=tk.X, pady=(0, 10))
+        g = ttk.Frame(orig_frame)
+        g.pack(fill=tk.X)
+
+        def info(label, value, row):
+            ttk.Label(g, text=label, font=("Segoe UI", 9, "bold")).grid(
+                row=row, column=0, sticky=tk.W, pady=2, padx=(0, 10))
+            ttk.Label(g, text=value).grid(row=row, column=1, sticky=tk.W, pady=2)
+
+        info("Lieferant:", self.supplier.name, 0)
+        info("Rechnungs-Nr.:", self.entry.invoice_number or "—", 1)
+        amt_str = self._fmt(self.entry.amount_billed) + " €"
+        info("Betrag (netto):", amt_str, 2)
+
+        # New values section
+        new_frame = ttk.LabelFrame(outer, text="Neuer Wert", padding=8)
+        new_frame.pack(fill=tk.X, pady=(0, 10))
+
+        et = self.entry.entry_type
+
+        if et == EntryType.WKZ and not self.entry.wkz_is_percentage:
+            ttk.Label(new_frame, text="Neuer Betrag (€):").grid(
+                row=0, column=0, sticky=tk.W, padx=(0, 10), pady=4)
+            ttk.Entry(new_frame, textvariable=self._amount_var, width=20).grid(
+                row=0, column=1, sticky=tk.W, pady=4)
+
+        elif et == EntryType.WKZ and self.entry.wkz_is_percentage:
+            ttk.Label(new_frame, text="Neues Einkaufsvolumen (€):").grid(
+                row=0, column=0, sticky=tk.W, padx=(0, 10), pady=4)
+            vol_entry = ttk.Entry(new_frame, textvariable=self._vol_var, width=20)
+            vol_entry.grid(row=0, column=1, sticky=tk.W, pady=4)
+            vol_entry.bind("<KeyRelease>", lambda e: self._update_vol_preview())
+            ttk.Label(new_frame, text="Neuer Nettobetrag:").grid(
+                row=1, column=0, sticky=tk.W, padx=(0, 10), pady=4)
+            ttk.Label(new_frame, textvariable=self._new_net_var).grid(
+                row=1, column=1, sticky=tk.W, pady=4)
+
+        elif et == EntryType.KICKBACK:
+            ttk.Label(new_frame, text="Mengen eingeben:",
+                      font=("Segoe UI", 9, "bold")).pack(anchor=tk.W, pady=(0, 4))
+            articles = self.entry.get_kickback_articles()
+            grid = ttk.Frame(new_frame)
+            grid.pack(fill=tk.X)
+            for col, header in enumerate(("Art.-Nr.", "Satz (€)", "Menge")):
+                ttk.Label(grid, text=header, font=("Segoe UI", 8, "bold")).grid(
+                    row=0, column=col, padx=4, pady=2, sticky=tk.W)
+            for i, art in enumerate(articles, start=1):
+                art_nr = art.get("article_number", "")
+                rate = float(art.get("kickback_amount", 0))
+                ttk.Label(grid, text=art_nr).grid(row=i, column=0, padx=4, pady=2, sticky=tk.W)
+                ttk.Label(grid, text=f"{rate:.2f}").grid(row=i, column=1, padx=4, pady=2, sticky=tk.E)
+                var = tk.StringVar(value="0")
+                self._qty_vars[art_nr] = var
+                ttk.Entry(grid, textvariable=var, width=10).grid(row=i, column=2, padx=4, pady=2, sticky=tk.W)
+
+        elif et == EntryType.UMSATZBONUS:
+            ttk.Label(new_frame, text="Erzielter Umsatz (€):").grid(
+                row=0, column=0, sticky=tk.W, padx=(0, 10), pady=4)
+            rev_entry = ttk.Entry(new_frame, textvariable=self._revenue_var, width=20)
+            rev_entry.grid(row=0, column=1, sticky=tk.W, pady=4)
+            rev_entry.bind("<KeyRelease>", lambda e: self._update_umsatzbonus_tier())
+            ttk.Label(new_frame, text="Passende Staffel:").grid(
+                row=1, column=0, sticky=tk.W, padx=(0, 10), pady=4)
+            ttk.Label(new_frame, textvariable=self._tier_label_var).grid(
+                row=1, column=1, sticky=tk.W, pady=4)
+
+        ttk.Separator(outer, orient=tk.HORIZONTAL).pack(fill=tk.X, pady=8)
+
+        bf = ttk.Frame(outer)
+        bf.pack(fill=tk.X)
+        ttk.Button(bf, text="Storno + Neue Rechnung erstellen",
+                   command=self._on_confirm).pack(side=tk.LEFT, padx=4)
+        ttk.Button(bf, text="Abbrechen", command=self.dialog.destroy).pack(side=tk.LEFT, padx=4)
+
+    def _update_vol_preview(self):
+        try:
+            vol = float(self._vol_var.get().replace(",", "."))
+            net = round(vol * self.entry.wkz_percentage / 100, 2)
+            self._new_net_var.set(self._fmt(net) + " €")
+        except ValueError:
+            self._new_net_var.set("–")
+
+    def _update_umsatzbonus_tier(self):
+        try:
+            rev = float(self._revenue_var.get().replace(",", "."))
+        except ValueError:
+            self._tier_label_var.set("–")
+            return
+        staffeln = self.entry.get_umsatzbonus_staffeln()
+        matching = None
+        for tier in sorted(staffeln, key=lambda t: float(t.get("revenue_threshold", 0)), reverse=True):
+            if rev >= float(tier.get("revenue_threshold", 0)):
+                matching = tier
+                break
+        if matching:
+            von = float(matching.get("revenue_threshold", 0))
+            pct = float(matching.get("bonus_percentage", 0))
+            bonus = round(rev * pct / 100, 2)
+            self._tier_label_var.set(
+                f"ab {self._fmt(von)} € → {pct:.2f}%  (= {self._fmt(bonus)} €)")
+        else:
+            self._tier_label_var.set("Keine passende Staffel")
+
+    def _on_confirm(self):
+        et = self.entry.entry_type
+
+        # Determine override kwargs for new invoice
+        override_kwargs = {}
+        qty_map = None
+        achieved_revenue = None
+
+        if et == EntryType.WKZ and not self.entry.wkz_is_percentage:
+            try:
+                override_kwargs["override_amount"] = float(self._amount_var.get().replace(",", "."))
+            except ValueError:
+                messagebox.showwarning("Eingabefehler", "Bitte einen gültigen Betrag eingeben.", parent=self.dialog)
+                return
+        elif et == EntryType.WKZ and self.entry.wkz_is_percentage:
+            try:
+                override_kwargs["override_purchase_volume"] = float(self._vol_var.get().replace(",", "."))
+            except ValueError:
+                messagebox.showwarning("Eingabefehler", "Bitte ein gültiges Einkaufsvolumen eingeben.", parent=self.dialog)
+                return
+        elif et == EntryType.KICKBACK:
+            qty_map = {}
+            for art_nr, var in self._qty_vars.items():
+                try:
+                    qty_map[art_nr] = float(var.get())
+                except ValueError:
+                    qty_map[art_nr] = 0.0
+        elif et == EntryType.UMSATZBONUS:
+            try:
+                achieved_revenue = float(self._revenue_var.get().replace(",", "."))
+            except ValueError:
+                messagebox.showwarning("Eingabefehler", "Bitte einen gültigen Umsatz eingeben.", parent=self.dialog)
+                return
+
+        try:
+            # 1. Storno of original
+            ctx_storno = self.invoice_service.build_context(
+                self.entry, self.supplier,
+                storno_net=self.entry.amount_billed,
+                orig_invoice_number=self.entry.invoice_number,
+            )
+            self.invoice_service.generate(self.entry, self.supplier, ctx_storno)
+
+            # 2. New corrected invoice
+            ctx_new = self.invoice_service.build_context(
+                self.entry, self.supplier,
+                qty_map=qty_map,
+                achieved_revenue=achieved_revenue,
+                **override_kwargs,
+            )
+            pdf_new = self.invoice_service.generate(self.entry, self.supplier, ctx_new)
+
+        except FileNotFoundError as exc:
+            messagebox.showerror("Vorlage fehlt", str(exc), parent=self.dialog)
+            return
+        except RuntimeError as exc:
+            messagebox.showerror("Fehler", str(exc), parent=self.dialog)
+            return
+        except Exception as exc:
+            messagebox.showerror("Fehler", f"Rechnungen konnten nicht erstellt werden:\n\n{exc}", parent=self.dialog)
+            return
+
+        # 3. Update entry to new invoice
+        self.entry.invoice_number = ctx_new["invoice_number"]
+        self.entry.amount_billed = ctx_new["net_raw"]
+        self.entry.date_billed = date.today()
+        self.entry.status = EntryStatus.ABGERECHNET
+        self.entry_service.update(self.entry)
+
+        abs_new = os.path.abspath(pdf_new)
+        messagebox.showinfo(
+            "Fertig",
+            f"Storno {ctx_storno['invoice_number']} + neue Rechnung {ctx_new['invoice_number']} erstellt.\n\nNeue Rechnung:\n{abs_new}",
+            parent=self.dialog
+        )
+        try:
+            os.startfile(abs_new)
+        except Exception:
+            pass
+        self.dialog.destroy()

@@ -9,7 +9,7 @@ ENTRY_COLUMNS = [
     "status", "amount", "amount_billed", "date_start", "date_end",
     "billing_deadline", "date_billed", "kickback_articles",
     "umsatzbonus_staffeln", "wkz_is_percentage", "wkz_percentage",
-    "wkz_category", "notes", "created_at"
+    "wkz_category", "notes", "created_at", "invoice_number"
 ]
 
 SUPPLIER_COLUMNS = ["id", "name", "contact_person", "email", "phone", "notes", "purchase_volume", "country"]

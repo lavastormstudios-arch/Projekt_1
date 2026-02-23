@@ -29,6 +29,7 @@ class Entry:
     wkz_percentage: float = 0.0
     wkz_category: str = ""
     notes: str = ""
+    invoice_number: str = ""
     id: str = field(default_factory=lambda: str(uuid.uuid4())[:8])
     created_at: str = field(default_factory=lambda: datetime.now().strftime("%Y-%m-%d %H:%M"))
 

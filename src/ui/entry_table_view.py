@@ -87,6 +87,9 @@ class EntryTablePage:
         self.context_menu.add_command(label="Als abgerechnet markieren", command=self._mark_billed)
         self.context_menu.add_separator()
         self.context_menu.add_command(label="Rechnung erstellen", command=self._create_invoice)
+        self.context_menu.add_separator()
+        self.context_menu.add_command(label="Storno erstellen", command=self._create_storno)
+        self.context_menu.add_command(label="Anpassen", command=self._adjust_invoice)
 
         # Buttons
         btn_frame = ttk.Frame(self.frame)
@@ -98,6 +101,8 @@ class EntryTablePage:
         self._invoice_btn = ttk.Button(btn_frame, textvariable=self._invoice_btn_var,
                                        command=self._create_invoice)
         self._invoice_btn.pack(side=tk.LEFT, padx=2)
+        ttk.Button(btn_frame, text="Storno", command=self._create_storno).pack(side=tk.LEFT, padx=2)
+        ttk.Button(btn_frame, text="Anpassen", command=self._adjust_invoice).pack(side=tk.LEFT, padx=2)
 
     def _reset_filters(self):
         if hasattr(self, "type_var"):
@@ -255,7 +260,10 @@ class EntryTablePage:
                 )
                 return
             from src.ui.invoice_dialog import InvoiceDialog
-            InvoiceDialog(self.app.root, entry, supplier, self.app.supplier_service, invoice_service)
+            dlg = InvoiceDialog(self.app.root, entry, supplier, self.app.supplier_service,
+                                invoice_service, entry_service=self.app.entry_service)
+            self.app.root.wait_window(dlg.dialog)
+            self.app.refresh_current_page()
         else:
             # Build (entry, supplier) pairs, warn about unresolvable ones
             pairs = []
@@ -277,7 +285,54 @@ class EntryTablePage:
                 return
 
             from src.ui.invoice_dialog import BulkInvoiceDialog
-            BulkInvoiceDialog(self.app.root, pairs, invoice_service)
+            dlg = BulkInvoiceDialog(self.app.root, pairs, invoice_service,
+                                    entry_service=self.app.entry_service)
+            self.app.root.wait_window(dlg.dialog)
+            self.app.refresh_current_page()
+
+    def _create_storno(self):
+        entry = self._get_selected_entry()
+        if not entry:
+            return
+        if entry.status != EntryStatus.ABGERECHNET or not entry.invoice_number:
+            messagebox.showinfo(
+                "Nicht möglich",
+                "Storno ist nur für abgerechnete Einträge mit einer Rechnungsnummer möglich.",
+                parent=self.app.root
+            )
+            return
+        supplier = self._resolve_supplier(entry)
+        if not supplier:
+            messagebox.showwarning("Lieferant nicht gefunden",
+                                   f"Kein Lieferant für '{entry.supplier_name}' gefunden.")
+            return
+        from src.services.invoice_service import InvoiceService
+        from src.ui.invoice_dialog import StornoDialog
+        dlg = StornoDialog(self.app.root, entry, supplier, self.app.entry_service, InvoiceService())
+        self.app.root.wait_window(dlg.dialog)
+        self.app.refresh_current_page()
+
+    def _adjust_invoice(self):
+        entry = self._get_selected_entry()
+        if not entry:
+            return
+        if entry.status != EntryStatus.ABGERECHNET or not entry.invoice_number:
+            messagebox.showinfo(
+                "Nicht möglich",
+                "Anpassen ist nur für abgerechnete Einträge mit einer Rechnungsnummer möglich.",
+                parent=self.app.root
+            )
+            return
+        supplier = self._resolve_supplier(entry)
+        if not supplier:
+            messagebox.showwarning("Lieferant nicht gefunden",
+                                   f"Kein Lieferant für '{entry.supplier_name}' gefunden.")
+            return
+        from src.services.invoice_service import InvoiceService
+        from src.ui.invoice_dialog import AdjustInvoiceDialog
+        dlg = AdjustInvoiceDialog(self.app.root, entry, supplier, self.app.entry_service, InvoiceService())
+        self.app.root.wait_window(dlg.dialog)
+        self.app.refresh_current_page()
 
     def show(self):
         self.frame.pack(fill=tk.BOTH, expand=True)

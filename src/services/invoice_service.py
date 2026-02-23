@@ -76,12 +76,20 @@ class InvoiceService:
         return f"RE-{year}-{next_num:04d}"
 
     def build_context(self, entry, supplier, qty_map: Optional[dict] = None,
-                      achieved_revenue: Optional[float] = None) -> dict:
+                      achieved_revenue: Optional[float] = None,
+                      storno_net: Optional[float] = None,
+                      orig_invoice_number: str = "",
+                      override_amount: Optional[float] = None,
+                      override_purchase_volume: Optional[float] = None) -> dict:
         from src.models.enums import EntryType
 
         tax_rate = 19 if _is_german(supplier) else 0
 
-        invoice_number = self.get_next_invoice_number()
+        # Storno reuses the original invoice number; new invoices get a fresh number
+        if storno_net is not None:
+            invoice_number = orig_invoice_number
+        else:
+            invoice_number = self.get_next_invoice_number()
         today = date.today()
         invoice_date = today.strftime("%d.%m.%Y")
         period_start = entry.date_start.strftime("%d.%m.%Y") if entry.date_start else ""
@@ -118,7 +126,22 @@ class InvoiceService:
             "JAHR":   str(year),
         }
 
-        if entry.entry_type == EntryType.KICKBACK:
+        # ── Net amount determination ──────────────────────────────────────
+        if storno_net is not None:
+            net = round(storno_net, 2)
+            is_storno = True
+            ctx["line_description"] = entry.description
+        elif override_amount is not None:
+            net = round(override_amount, 2)
+            is_storno = False
+            ctx["line_description"] = entry.description
+        elif override_purchase_volume is not None:
+            net = round(override_purchase_volume * entry.wkz_percentage / 100, 2)
+            is_storno = False
+            ctx["base_amount"] = f"{override_purchase_volume:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+            ctx["percentage"] = f"{entry.wkz_percentage:.2f}"
+            ctx["line_description"] = f"WKZ {entry.wkz_percentage:.2f}% auf Einkaufsumsatz"
+        elif entry.entry_type == EntryType.KICKBACK:
             articles = entry.get_kickback_articles()
             items = []
             net = 0.0
@@ -135,6 +158,7 @@ class InvoiceService:
                     "line_amount": f"{line_amount:.2f}",
                 })
             net = round(net, 2)
+            is_storno = False
             ctx["items"] = items
             ctx["line_description"] = entry.description
 
@@ -147,6 +171,7 @@ class InvoiceService:
             else:
                 net = round(entry.amount, 2)
                 ctx["line_description"] = entry.description
+            is_storno = False
 
         elif entry.entry_type == EntryType.UMSATZBONUS:
             staffeln = entry.get_umsatzbonus_staffeln()
@@ -169,24 +194,34 @@ class InvoiceService:
                 ctx["bonus_tier"] = "–"
                 ctx["bonus_percentage"] = "0"
                 ctx["line_description"] = entry.description
+            is_storno = False
         else:
             net = round(entry.amount, 2)
+            is_storno = False
             ctx["line_description"] = entry.description
 
+        # ── Storno / normal prefix & reference ───────────────────────────
+        ctx["BELAST_PREFIX"] = "Storno Belastungsanzeige " if is_storno else "Belastungsanzeige "
+        ctx["ORIG_RENR"] = ""   # same RENR used → no separate reference line needed
+        ctx["is_storno"] = is_storno
+        ctx["net_raw"] = net
+
+        # ── Amounts (negated for storno) ──────────────────────────────────
+        sign = -1 if is_storno else 1
         tax_amount = round(net * tax_rate / 100, 2)
         total = round(net + tax_amount, 2)
 
         def fmt(v: float) -> str:
             return f"{v:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
 
-        ctx["net_amount"] = fmt(net)
-        ctx["tax_amount"] = fmt(tax_amount)
-        ctx["total_amount"] = fmt(total)
+        ctx["net_amount"] = fmt(sign * net)
+        ctx["tax_amount"] = fmt(sign * tax_amount)
+        ctx["total_amount"] = fmt(sign * total)
 
         # SAP financial keys (Vorlage Bonus)
-        ctx["NETSUM"] = fmt(net)
-        ctx["MWST"]   = fmt(tax_amount)
-        ctx["GESBET"] = fmt(total)
+        ctx["NETSUM"] = fmt(sign * net)
+        ctx["MWST"]   = fmt(sign * tax_amount)
+        ctx["GESBET"] = fmt(sign * total)
 
         # Ensure optional template keys are always present so Jinja2 conditionals evaluate cleanly
         ctx.setdefault("base_amount", "")
@@ -236,6 +271,8 @@ class InvoiceService:
 
         inv_num = context.get("invoice_number", "RE-0000")
         safe_num = inv_num.replace("/", "-").replace("\\", "-")
+        if context.get("is_storno"):
+            safe_num = f"{safe_num}-Storno"
 
         with tempfile.TemporaryDirectory() as tmp_dir:
             tmp_docx = os.path.join(tmp_dir, f"{safe_num}.docx")
