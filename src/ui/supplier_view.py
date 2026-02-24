@@ -12,6 +12,7 @@ DOC_CATEGORIES = [
     "Lieferantengespräche",
     "Lieferantenvertrag",
     "Konditionen",
+    "Preislisten",
     "Informationen",
     "WKZ & Bonusrechnungen",
 ]
