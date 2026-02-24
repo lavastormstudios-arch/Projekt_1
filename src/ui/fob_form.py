@@ -117,6 +117,31 @@ class FobFormDialog:
         ]
         for row, (lbl, key) in enumerate(fields):
             self._add_field(f, row, lbl, key)
+
+        # Mutual exclusivity: only one FOB price field may be filled
+        _fob_fields = ("ek_fob_dollar", "ek_fob_rmb", "ek_fob_euro")
+        self._fob_clearing = False
+
+        def make_fob_handler(changed_key):
+            def handler(*_):
+                if self._fob_clearing:
+                    return
+                v = self._vars.get(changed_key)
+                if v and v.get().strip():
+                    self._fob_clearing = True
+                    for other in _fob_fields:
+                        if other != changed_key:
+                            ov = self._vars.get(other)
+                            if ov:
+                                ov.set("")
+                    self._fob_clearing = False
+            return handler
+
+        for key in _fob_fields:
+            v = self._vars.get(key)
+            if v:
+                v.trace_add("write", make_fob_handler(key))
+
         self._add_field(f, len(fields), "Zollsatz (%)",
                         "zollsatz_pct", show_pct=False)
         ttk.Label(f, text="(z.B. 4.7 für 4,7%)", foreground="gray",
