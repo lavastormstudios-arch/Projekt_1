@@ -48,7 +48,7 @@ class LauncherWindow:
 
         self.permissions = self.auth_service.get_permissions(self.current_user)
 
-        self._center_window(620, 480)
+        self._center_window(920, 520)
         self._build_ui()
 
     def run(self):
@@ -162,7 +162,7 @@ class LauncherWindow:
 
     def _build_cards(self):
         card_area = tk.Frame(self.root, bg=self.BG)
-        card_area.pack(fill="both", expand=True, padx=30, pady=28)
+        card_area.pack(fill="both", expand=True, padx=24, pady=24)
 
         p = self.permissions
 
@@ -192,7 +192,7 @@ class LauncherWindow:
         if p.can_view_lieferanten:
             modules.append({
                 "icon": "🤝",
-                "title": "Lieferanten-\nmanagement",
+                "title": "Lieferantenmanagement",
                 "desc": "Lieferantenpflege\nund Bewertung",
                 "enabled": True,
                 "command": self._open_lieferanten,
@@ -231,7 +231,8 @@ class LauncherWindow:
         icon_lbl.pack(pady=(0, 8))
 
         title_lbl = tk.Label(inner, text=mod["title"], bg=bg, fg="white",
-                             font=("Segoe UI", 13, "bold"), justify="center")
+                             font=("Segoe UI", 13, "bold"), justify="center",
+                             wraplength=160)
         title_lbl.pack()
 
         desc_lbl = tk.Label(inner, text=mod["desc"], bg=bg, fg="#DDEEFF",
