@@ -20,7 +20,11 @@ config.ini
 # Business data (Excel stores)
 data/entries.xlsx
 data/suppliers.xlsx
+data/users.xlsx
 data/export_*.xlsx
+
+# Temp files
+*.bak
 
 # Generated output
 data/invoices/
