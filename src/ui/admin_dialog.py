@@ -135,6 +135,25 @@ class AdminSettingsDialog:
             ttk.Button(btn_row, text="Benutzerverwaltung",
                        command=self._open_user_management, width=18).pack(side=tk.LEFT, padx=6)
 
+    def _get_articles_status(self) -> str:
+        from src.services.article_service import ArticleService
+        if ArticleService.is_loaded():
+            return f"{ArticleService.get_count()} Artikel geladen"
+        return "Noch nicht geladen"
+
+    def _reload_articles(self):
+        from src.services.article_service import ArticleService
+        path = self._v["articles_csv_path"].get().strip()
+        if not path:
+            messagebox.showwarning("Hinweis", "Kein Pfad angegeben.", parent=self.dialog)
+            return
+        try:
+            count = ArticleService.load_from_csv(path)
+            self._articles_status.set(f"{count} Artikel geladen")
+            messagebox.showinfo("Erfolg", f"{count} Artikel aus CSV geladen.", parent=self.dialog)
+        except ValueError as exc:
+            messagebox.showerror("Fehler", str(exc), parent=self.dialog)
+
     def _open_user_management(self):
         from src.ui.user_management_dialog import UserManagementDialog
         UserManagementDialog(self.dialog, self._auth_service)
@@ -160,6 +179,31 @@ class AdminSettingsDialog:
                        self._v["csv_path"],
                        filetypes=[("CSV-Dateien", "*.csv"), ("Alle Dateien", "*.*")]
                    )).pack(side=tk.LEFT, padx=(4, 0))
+
+        ttk.Separator(f, orient=tk.HORIZONTAL).pack(fill=tk.X, pady=14)
+
+        ttk.Label(f, text="Artikelliste (SAP-Export)",
+                  font=("Segoe UI", 10, "bold")).pack(anchor=tk.W, pady=(0, 4))
+        ttk.Label(f, text="CSV-Datei mit Artikelstammdaten (Artnr, Bez, EK, ...).\n"
+                  "Wird beim Programmstart geladen und im FOB-Formular zur Auto-Vervollständigung genutzt.",
+                  wraplength=470).pack(anchor=tk.W, pady=(0, 6))
+
+        self._v["articles_csv_path"] = tk.StringVar(
+            value=self._g("Import", "articles_csv_path"))
+        row2 = ttk.Frame(f)
+        row2.pack(fill=tk.X)
+        ttk.Entry(row2, textvariable=self._v["articles_csv_path"], width=42).pack(side=tk.LEFT)
+        ttk.Button(row2, text="...", width=3,
+                   command=lambda: self._browse_file(
+                       self._v["articles_csv_path"],
+                       filetypes=[("CSV-Dateien", "*.csv"), ("Alle Dateien", "*.*")]
+                   )).pack(side=tk.LEFT, padx=(4, 0))
+
+        self._articles_status = tk.StringVar(value=self._get_articles_status())
+        ttk.Label(f, textvariable=self._articles_status,
+                  font=("Segoe UI", 8), foreground="gray").pack(anchor=tk.W, pady=(4, 0))
+        ttk.Button(f, text="Jetzt laden",
+                   command=self._reload_articles).pack(anchor=tk.W, pady=(4, 0))
 
     # ── Tab: SMTP ──────────────────────────────────────────────────────
 
@@ -446,6 +490,7 @@ class AdminSettingsDialog:
 
         ensure("Import")
         cfg.set("Import", "csv_path", self._v["csv_path"].get().strip())
+        cfg.set("Import", "articles_csv_path", self._v["articles_csv_path"].get().strip())
 
         ensure("SMTP")
         cfg.set("SMTP", "enabled",      str(self._v["smtp_enabled"].get()).lower())

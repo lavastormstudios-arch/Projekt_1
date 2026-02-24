@@ -76,17 +76,33 @@ class FobFormDialog:
     def _tab_artikel(self, nb):
         f = ttk.Frame(nb, padding=14)
         nb.add(f, text="Artikel-Info")
+
+        # Artnr: special handling with lookup trigger
+        ttk.Label(f, text="Artnr *").grid(row=0, column=0, sticky=tk.W, pady=3)
+        artnr_var = tk.StringVar()
+        self._vars["artnr"] = artnr_var
+        artnr_entry = ttk.Entry(f, textvariable=artnr_var, width=32)
+        artnr_entry.grid(row=0, column=1, sticky=tk.W, padx=8, pady=3)
+        artnr_var.trace_add("write", lambda *_: self._update_preview())
+        artnr_entry.bind("<FocusOut>", lambda _e: self._lookup_article())
+        artnr_entry.bind("<Return>", lambda _e: self._lookup_article())
+
+        self._lookup_status = tk.StringVar(value="")
+        ttk.Label(f, textvariable=self._lookup_status,
+                  font=("Segoe UI", 8), foreground="#2B7A0B").grid(
+            row=0, column=2, sticky=tk.W, padx=4)
+
+        # Remaining fields
         fields = [
-            ("Artnr *",         "artnr"),
             ("Bezeichnung *",   "bezeichnung"),
             ("Lieferant *",     "lieferant"),
             ("Warengruppe",     "warengruppe"),
             ("CM",              "cm"),
             ("Aktuelle ZTN",    "aktuelle_ztn"),
         ]
-        for row, (lbl, key) in enumerate(fields):
-            self._add_field(f, row, lbl, key, width=32)
-        self._add_field(f, len(fields), "Archiv", "archiv", var_type="bool")
+        for i, (lbl, key) in enumerate(fields, start=1):
+            self._add_field(f, i, lbl, key, width=32)
+        self._add_field(f, len(fields) + 1, "Archiv", "archiv", var_type="bool")
 
     def _tab_preise(self, nb):
         f = ttk.Frame(nb, padding=14)
@@ -221,6 +237,59 @@ class FobFormDialog:
             self._preview_text.set("\n".join(lines))
         except Exception:
             self._preview_text.set("")
+
+    # ------------------------------------------------------------------
+    # Article lookup / auto-fill
+    # ------------------------------------------------------------------
+
+    def _lookup_article(self):
+        from src.services.article_service import ArticleService
+        artnr = self._vars.get("artnr", tk.StringVar()).get().strip()
+        if not artnr:
+            self._lookup_status.set("")
+            return
+
+        article = ArticleService.lookup(artnr)
+        if article is None:
+            if ArticleService.is_loaded():
+                self._lookup_status.set("Nicht in Artikelliste")
+            else:
+                self._lookup_status.set("")
+            return
+
+        # Auto-fill: only fill fields that are currently empty
+        _str_fields = [
+            ("bezeichnung",    "bezeichnung"),
+            ("lieferant",      "lieferant"),
+            ("warengruppe",    "warengruppe"),
+            ("cm",             "cm"),
+            ("aktuelle_ztn",   "aktuelle_ztn"),
+        ]
+        _float_fields = [
+            ("aktueller_ek",   "aktueller_ek"),
+            ("geplanter_uvp",  "geplanter_uvp"),
+        ]
+
+        filled = []
+        for form_key, article_key in _str_fields:
+            val = article.get(article_key, "")
+            if val:
+                v = self._vars.get(form_key)
+                if v and not v.get().strip():
+                    v.set(val)
+                    filled.append(form_key)
+
+        for form_key, article_key in _float_fields:
+            val = article.get(article_key, "")
+            if val:
+                v = self._vars.get(form_key)
+                if v and not v.get().strip():
+                    v.set(val)
+                    filled.append(form_key)
+
+        bez = article.get("bezeichnung", artnr)
+        self._lookup_status.set(f"✓ {bez}")
+        self._update_preview()
 
     # ------------------------------------------------------------------
     # Save

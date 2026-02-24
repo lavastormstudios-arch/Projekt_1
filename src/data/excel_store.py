@@ -37,6 +37,9 @@ class ExcelStore:
         self._ensure_file(ENTRIES_FILE, ENTRY_COLUMNS)
         self._ensure_file(SUPPLIERS_FILE, SUPPLIER_COLUMNS)
         self._ensure_file(FOB_KALKULATION_FILE, FOB_COLUMNS)
+        # Auto-load article list if configured
+        from src.services.article_service import ArticleService
+        ArticleService.load_from_config()
 
     def _ensure_file(self, path: str, columns: list):
         if not os.path.exists(path):
