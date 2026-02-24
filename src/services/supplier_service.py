@@ -127,12 +127,12 @@ class SupplierService:
                     existing.country = country
                 if notes and not existing.notes:
                     existing.notes = notes
-                self.store.update_supplier(existing)
                 updated += 1
             else:
                 new_supplier = Supplier(name=name, country=country, notes=notes)
-                self.store.add_supplier(new_supplier)
+                suppliers.append(new_supplier)
                 supplier_by_name[match_key] = new_supplier
                 created += 1
 
+        self.store.save_suppliers(suppliers)
         return f"CSV-Import: {created} neue Lieferanten, {updated} aktualisiert."
