@@ -36,6 +36,7 @@ class SupplierPage:
         self._search_var: tk.StringVar = tk.StringVar()
         # Maps category name → ttk.Treeview for that tab
         self._cat_trees: dict[str, ttk.Treeview] = {}
+        self._all_files_tree: ttk.Treeview | None = None
         self._notebook: ttk.Notebook | None = None
         self._name_label: ttk.Label | None = None
         self._path_var: tk.StringVar = tk.StringVar()
@@ -139,6 +140,7 @@ class SupplierPage:
         self._notebook = ttk.Notebook(notebook_frame)
         self._notebook.pack(fill=tk.BOTH, expand=True)
 
+        self._build_all_files_tab(self._notebook)
         for cat in DOC_CATEGORIES:
             self._build_category_tab(self._notebook, cat)
 
@@ -189,6 +191,87 @@ class SupplierPage:
         tree.bind("<Double-1>", lambda e, c=category: self._open_file(c))
 
         self._cat_trees[category] = tree
+
+    def _build_all_files_tab(self, notebook: ttk.Notebook):
+        tab_frame = ttk.Frame(notebook)
+        notebook.add(tab_frame, text="Alle Dateien")
+
+        columns = ("size", "modified")
+        tree_frame = ttk.Frame(tab_frame)
+        tree_frame.pack(fill=tk.BOTH, expand=True)
+
+        self._all_files_tree = ttk.Treeview(tree_frame, columns=columns,
+                                             show="tree headings", selectmode="browse")
+        vsb = ttk.Scrollbar(tree_frame, orient=tk.VERTICAL,
+                            command=self._all_files_tree.yview)
+        self._all_files_tree.configure(yscrollcommand=vsb.set)
+
+        self._all_files_tree.heading("#0",       text="Kategorie / Dateiname")
+        self._all_files_tree.heading("size",     text="Größe")
+        self._all_files_tree.heading("modified", text="Geändert")
+
+        self._all_files_tree.column("#0",       width=320, minwidth=150, anchor=tk.W)
+        self._all_files_tree.column("size",     width=90,  minwidth=60,  anchor=tk.E)
+        self._all_files_tree.column("modified", width=110, minwidth=80,  anchor=tk.W)
+
+        self._all_files_tree.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        vsb.pack(side=tk.RIGHT, fill=tk.Y)
+        self._all_files_tree.bind("<Double-1>", self._open_file_from_all_tab)
+
+    def _refresh_all_files_tab(self):
+        if self._all_files_tree is None:
+            return
+        self._all_files_tree.delete(*self._all_files_tree.get_children())
+
+        for cat in DOC_CATEGORIES:
+            folder = self._category_folder(cat)
+            files = []
+            if os.path.isdir(folder):
+                try:
+                    for entry in sorted(os.scandir(folder),
+                                        key=lambda e: e.name.lower()):
+                        if not entry.is_file():
+                            continue
+                        try:
+                            stat = entry.stat()
+                            size_kb = stat.st_size / 1024
+                            size_str = (f"{size_kb:.1f} KB" if size_kb < 1024
+                                        else f"{size_kb/1024:.1f} MB")
+                            mtime = datetime.fromtimestamp(
+                                stat.st_mtime).strftime("%d.%m.%y")
+                        except OSError:
+                            size_str = "–"
+                            mtime = "–"
+                        files.append((entry.path, entry.name, size_str, mtime))
+                except OSError:
+                    pass
+
+            cat_iid = f"__cat__{cat}"
+            cat_label = f"{cat}  ({len(files)})"
+            self._all_files_tree.insert("", tk.END, iid=cat_iid,
+                                        text=cat_label, values=("", ""),
+                                        open=len(files) > 0)
+            for path, name, size_str, mtime in files:
+                self._all_files_tree.insert(cat_iid, tk.END, iid=path,
+                                            text=name, values=(size_str, mtime))
+
+    def _open_file_from_all_tab(self, event=None):
+        if self._all_files_tree is None:
+            return
+        sel = self._all_files_tree.selection()
+        if not sel:
+            return
+        path = sel[0]
+        if path.startswith("__cat__"):
+            return  # category node clicked
+        if not os.path.isfile(path):
+            messagebox.showerror("Fehler", "Datei nicht gefunden.")
+            return
+        try:
+            os.startfile(path)
+        except OSError as exc:
+            messagebox.showerror("Fehler",
+                                 f"Datei konnte nicht geöffnet werden:\n{exc}")
 
     # ------------------------------------------------------------------
     # Visibility helpers
@@ -289,6 +372,7 @@ class SupplierPage:
     def _refresh_all_categories(self):
         for cat, tree in self._cat_trees.items():
             self._refresh_category(cat, tree)
+        self._refresh_all_files_tab()
 
     # ------------------------------------------------------------------
     # Supplier selection
@@ -433,6 +517,9 @@ class SupplierPage:
     def _open_file(self, category: str | None = None):
         if category is None:
             category = self._active_category()
+        if category == "Alle Dateien":
+            self._open_file_from_all_tab()
+            return
         if category is None:
             return
         tree = self._cat_trees.get(category)
