@@ -229,7 +229,11 @@ class InvoiceService:
             ctx["line_description"] = entry.description
 
         # ── Storno / normal prefix & reference ───────────────────────────
-        ctx["BELAST_PREFIX"] = "Storno Belastungsanzeige " if is_storno else "Belastungsanzeige "
+        if entry.entry_type in (EntryType.WKZ, EntryType.KICKBACK):
+            ctx["BELAST_PREFIX"] = "Storno Werbekosten-Rechnung" if is_storno else "Werbekosten-Rechnung"
+            ctx["ARTBON"] = ""  # Typ-Bezeichnung nicht doppelt anzeigen
+        else:
+            ctx["BELAST_PREFIX"] = "Storno Belastungsanzeige " if is_storno else "Belastungsanzeige "
         ctx["ORIG_RENR"] = ""   # same RENR used → no separate reference line needed
         ctx["is_storno"] = is_storno
         ctx["net_raw"] = net
