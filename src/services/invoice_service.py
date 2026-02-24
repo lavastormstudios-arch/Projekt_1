@@ -229,7 +229,11 @@ class InvoiceService:
             ctx["line_description"] = entry.description
 
         # ── Storno / normal prefix & reference ───────────────────────────
-        if entry.entry_type in (EntryType.WKZ, EntryType.KICKBACK):
+        if entry.entry_type == EntryType.KICKBACK:
+            ctx["BELAST_PREFIX"] = "Storno Rechnung-Kickback-Vergütung" if is_storno else "Rechnung-Kickback-Vergütung"
+            ctx["ARTBON"] = ""
+            ctx["is_wkz_type"] = True
+        elif entry.entry_type == EntryType.WKZ:
             ctx["BELAST_PREFIX"] = "Storno Werbekosten-Rechnung" if is_storno else "Werbekosten-Rechnung"
             ctx["ARTBON"] = f" – {entry.description}" if entry.description else ""
             ctx["is_wkz_type"] = True
