@@ -182,6 +182,13 @@ class LauncherWindow:
             "enabled": False,
             "command": None,
         })
+        modules.append({
+            "icon": "📣",
+            "title": "Kampagnen",
+            "desc": "Kampagnenplanung\nund Verwaltung",
+            "enabled": False,
+            "command": None,
+        })
         if p.can_view_lieferanten:
             modules.append({
                 "icon": "🤝",
