@@ -8,11 +8,14 @@ from src.services.supplier_service import SupplierService
 class SupplierWindow:
     """Standalone window for Lieferantenmanagement, independent of MainWindow."""
 
-    def __init__(self):
+    def __init__(self, current_user=None, permissions=None):
         self.root = tk.Tk()
         self.root.title("Lieferantenmanagement")
         self.root.geometry("1150x720")
         self.root.minsize(900, 580)
+
+        self.current_user = current_user
+        self.permissions = permissions
 
         self.store = ExcelStore()
         self.supplier_service = SupplierService(self.store)

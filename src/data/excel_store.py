@@ -9,9 +9,25 @@ from src.models.enums import EntryType, EntryStatus
 from src.models.supplier import Supplier
 from src.utils.constants import (
     DATA_DIR, ENTRIES_FILE, SUPPLIERS_FILE,
+    USERS_FILE, DEPARTMENTS, ROLES, MODULES, ACTION_PERMISSIONS,
     ENTRY_COLUMNS, SUPPLIER_COLUMNS
 )
 from src.utils.date_helpers import parse_date, format_date, safe_float, safe_int
+
+# Default permission tables
+_DEFAULT_MODULE_ACCESS = {
+    "CM":        {"WKZ & Bonus": True,  "Lieferantenmanagement": True},
+    "Marketing": {"WKZ & Bonus": False, "Lieferantenmanagement": True},
+    "Vertrieb":  {"WKZ & Bonus": True,  "Lieferantenmanagement": True},
+    "SCM":       {"WKZ & Bonus": True,  "Lieferantenmanagement": True},
+}
+
+_DEFAULT_ACTION_RIGHTS = {
+    "Admin":            {"can_edit": True,  "can_delete": True,  "can_invoice": True,  "can_export": True,  "can_import": True,  "is_admin": True},
+    "Abteilungsleiter": {"can_edit": True,  "can_delete": True,  "can_invoice": True,  "can_export": True,  "can_import": True,  "is_admin": False},
+    "Teamleiter":       {"can_edit": True,  "can_delete": False, "can_invoice": True,  "can_export": True,  "can_import": False, "is_admin": False},
+    "Mitarbeiter":      {"can_edit": False, "can_delete": False, "can_invoice": False, "can_export": True,  "can_import": False, "is_admin": False},
+}
 
 
 class ExcelStore:
@@ -147,3 +163,126 @@ class ExcelStore:
     def delete_supplier(self, supplier_id: str):
         suppliers = [s for s in self.load_suppliers() if s.id != supplier_id]
         self.save_suppliers(suppliers)
+
+    # --- Users ---
+
+    def _ensure_users_file(self):
+        """Create users.xlsx with all three sheets and defaults if it doesn't exist."""
+        if os.path.exists(USERS_FILE):
+            return
+        wb = Workbook()
+        # Sheet 1: Users
+        ws1 = wb.active
+        ws1.title = "Users"
+        ws1.append(["username", "display_name", "department", "role", "active"])
+        # Sheet 2: Modulzugriff
+        ws2 = wb.create_sheet("Modulzugriff")
+        ws2.append(["department"] + MODULES)
+        for dept, mods in _DEFAULT_MODULE_ACCESS.items():
+            ws2.append([dept] + [mods.get(m, False) for m in MODULES])
+        # Sheet 3: Aktionsrechte
+        ws3 = wb.create_sheet("Aktionsrechte")
+        ws3.append(["role"] + ACTION_PERMISSIONS)
+        for role, perms in _DEFAULT_ACTION_RIGHTS.items():
+            ws3.append([role] + [perms.get(p, False) for p in ACTION_PERMISSIONS])
+        wb.save(USERS_FILE)
+
+    def _open_users_wb(self):
+        self._ensure_users_file()
+        return load_workbook(USERS_FILE)
+
+    def load_users(self) -> list[dict]:
+        wb = self._open_users_wb()
+        ws = wb["Users"]
+        headers = [cell.value for cell in ws[1]]
+        users = []
+        for row in ws.iter_rows(min_row=2, values_only=True):
+            if row[0] is None:
+                continue
+            data = dict(zip(headers, row))
+            data["active"] = bool(data.get("active", True))
+            users.append(data)
+        wb.close()
+        return users
+
+    def save_users(self, users: list[dict]):
+        wb = self._open_users_wb()
+        ws = wb["Users"]
+        # Clear existing data rows
+        for row in ws.iter_rows(min_row=2):
+            for cell in row:
+                cell.value = None
+        # Rewrite
+        for i, u in enumerate(users, start=2):
+            ws.cell(i, 1, u.get("username", ""))
+            ws.cell(i, 2, u.get("display_name", ""))
+            ws.cell(i, 3, u.get("department", ""))
+            ws.cell(i, 4, u.get("role", ""))
+            ws.cell(i, 5, bool(u.get("active", True)))
+        wb.save(USERS_FILE)
+        wb.close()
+
+    def load_module_access(self) -> dict:
+        """Returns {department: {module: bool}}"""
+        wb = self._open_users_wb()
+        ws = wb["Modulzugriff"]
+        headers = [cell.value for cell in ws[1]]
+        modules = headers[1:]
+        result = {}
+        for row in ws.iter_rows(min_row=2, values_only=True):
+            if row[0] is None:
+                continue
+            dept = row[0]
+            result[dept] = {modules[j]: bool(row[j + 1]) for j in range(len(modules))}
+        wb.close()
+        # Fill missing departments with defaults
+        for dept in DEPARTMENTS:
+            if dept not in result:
+                result[dept] = dict(_DEFAULT_MODULE_ACCESS.get(dept, {m: False for m in MODULES}))
+        return result
+
+    def save_module_access(self, matrix: dict):
+        """matrix: {department: {module: bool}}"""
+        wb = self._open_users_wb()
+        ws = wb["Modulzugriff"]
+        for row in ws.iter_rows(min_row=2):
+            for cell in row:
+                cell.value = None
+        for i, dept in enumerate(DEPARTMENTS, start=2):
+            ws.cell(i, 1, dept)
+            for j, mod in enumerate(MODULES, start=2):
+                ws.cell(i, j, bool(matrix.get(dept, {}).get(mod, False)))
+        wb.save(USERS_FILE)
+        wb.close()
+
+    def load_action_rights(self) -> dict:
+        """Returns {role: {permission: bool}}"""
+        wb = self._open_users_wb()
+        ws = wb["Aktionsrechte"]
+        headers = [cell.value for cell in ws[1]]
+        perms = headers[1:]
+        result = {}
+        for row in ws.iter_rows(min_row=2, values_only=True):
+            if row[0] is None:
+                continue
+            role = row[0]
+            result[role] = {perms[j]: bool(row[j + 1]) for j in range(len(perms))}
+        wb.close()
+        for role in ROLES:
+            if role not in result:
+                result[role] = dict(_DEFAULT_ACTION_RIGHTS.get(role, {p: False for p in ACTION_PERMISSIONS}))
+        return result
+
+    def save_action_rights(self, matrix: dict):
+        """matrix: {role: {permission: bool}}"""
+        wb = self._open_users_wb()
+        ws = wb["Aktionsrechte"]
+        for row in ws.iter_rows(min_row=2):
+            for cell in row:
+                cell.value = None
+        for i, role in enumerate(ROLES, start=2):
+            ws.cell(i, 1, role)
+            for j, perm in enumerate(ACTION_PERMISSIONS, start=2):
+                ws.cell(i, j, bool(matrix.get(role, {}).get(perm, False)))
+        wb.save(USERS_FILE)
+        wb.close()

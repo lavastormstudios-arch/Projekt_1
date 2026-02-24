@@ -1,5 +1,7 @@
 import os
+import sys
 import tkinter as tk
+from tkinter import messagebox, ttk
 
 _ASSETS_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(
     os.path.abspath(__file__)))), "assets")
@@ -21,6 +23,31 @@ class LauncherWindow:
         self.root.resizable(False, False)
         self.root.configure(bg=self.BG)
 
+        # Auth
+        from src.data.excel_store import ExcelStore
+        from src.services.auth_service import AuthService
+
+        self.store = ExcelStore()
+        self.auth_service = AuthService(self.store)
+
+        # Bootstrap check
+        if self.auth_service.needs_bootstrap():
+            self._run_bootstrap()
+
+        # Authenticate
+        self.current_user = self.auth_service.authenticate()
+        if self.current_user is None:
+            self.root.withdraw()
+            messagebox.showerror(
+                "Kein Zugang",
+                "Ihr Windows-Benutzer ist nicht berechtigt, dieses Programm zu verwenden.\n\n"
+                "Bitte wenden Sie sich an den Systemadministrator."
+            )
+            self.root.destroy()
+            sys.exit()
+
+        self.permissions = self.auth_service.get_permissions(self.current_user)
+
         self._center_window(620, 480)
         self._build_ui()
 
@@ -34,6 +61,59 @@ class LauncherWindow:
         x = (sw - w) // 2
         y = (sh - h) // 2
         self.root.geometry(f"{w}x{h}+{x}+{y}")
+
+    # ------------------------------------------------------------------
+    # Bootstrap dialog
+    # ------------------------------------------------------------------
+
+    def _run_bootstrap(self):
+        """Show first-run dialog to create the first admin user."""
+        win_user = self.auth_service.get_windows_username()
+
+        dlg = tk.Toplevel(self.root)
+        dlg.title("Ersteinrichtung")
+        dlg.resizable(False, False)
+        dlg.transient(self.root)
+        dlg.grab_set()
+        w, h = 420, 220
+        self.root.update_idletasks()
+        sw = self.root.winfo_screenwidth()
+        sh = self.root.winfo_screenheight()
+        dlg.geometry(f"{w}x{h}+{(sw-w)//2}+{(sh-h)//2}")
+
+        f = ttk.Frame(dlg, padding=20)
+        f.pack(fill=tk.BOTH, expand=True)
+
+        ttk.Label(f, text="Ersteinrichtung",
+                  font=("Segoe UI", 12, "bold")).pack(pady=(0, 6))
+        ttk.Label(f, text="Bitte Admin-Benutzernamen und Anzeigenamen eingeben.",
+                  wraplength=360).pack(pady=(0, 10))
+
+        form = ttk.Frame(f)
+        form.pack(fill=tk.X)
+
+        ttk.Label(form, text="Benutzername:").grid(row=0, column=0, sticky=tk.W, pady=4)
+        username_var = tk.StringVar(value=win_user)
+        ttk.Entry(form, textvariable=username_var, width=28).grid(
+            row=0, column=1, padx=8, pady=4)
+
+        ttk.Label(form, text="Anzeigename:").grid(row=1, column=0, sticky=tk.W, pady=4)
+        name_var = tk.StringVar(value=win_user)
+        ttk.Entry(form, textvariable=name_var, width=28).grid(
+            row=1, column=1, padx=8, pady=4)
+
+        def do_bootstrap():
+            username = username_var.get().strip()
+            display_name = name_var.get().strip()
+            if not username:
+                messagebox.showwarning("Fehler", "Benutzername darf nicht leer sein.",
+                                       parent=dlg)
+                return
+            self.auth_service.bootstrap_first_admin(username, display_name)
+            dlg.destroy()
+
+        ttk.Button(f, text="Admin anlegen", command=do_bootstrap).pack(pady=(14, 0))
+        self.root.wait_window(dlg)
 
     # ------------------------------------------------------------------
     # UI construction
@@ -54,12 +134,10 @@ class LauncherWindow:
             from PIL import Image, ImageTk
             img = Image.open(_LOGO_PATH).convert("RGBA")
 
-            # Scale to 72 px tall, keep aspect ratio
             target_h = 72
             target_w = int(target_h * img.width / img.height)
             img = img.resize((target_w, target_h), Image.LANCZOS)
 
-            # Composite transparent logo onto the header background colour
             hx = self.HEADER_BG.lstrip("#")
             bg_color = (int(hx[0:2], 16), int(hx[2:4], 16), int(hx[4:6], 16), 255)
             bg = Image.new("RGBA", img.size, bg_color)
@@ -86,34 +164,46 @@ class LauncherWindow:
         card_area = tk.Frame(self.root, bg=self.BG)
         card_area.pack(fill="both", expand=True, padx=30, pady=28)
 
-        card_area.columnconfigure(0, weight=1)
-        card_area.columnconfigure(1, weight=1)
-        card_area.columnconfigure(2, weight=1)
-        card_area.rowconfigure(0, weight=1)
+        p = self.permissions
 
-        modules = [
-            {
+        modules = []
+        if p.can_view_wkz_bonus:
+            modules.append({
                 "icon": "🔧",
                 "title": "WKZ & Bonus",
                 "desc": "Konditionserfassung\nund Auswertung",
                 "enabled": True,
                 "command": self._open_wkz_bonus,
-            },
-            {
-                "icon": "📦",
-                "title": "FOB-Kalkulation",
-                "desc": "Preiskalkulation\nfür FOB-Importe",
-                "enabled": False,
-                "command": None,
-            },
-            {
+            })
+        modules.append({
+            "icon": "📦",
+            "title": "FOB-Kalkulation",
+            "desc": "Preiskalkulation\nfür FOB-Importe",
+            "enabled": False,
+            "command": None,
+        })
+        if p.can_view_lieferanten:
+            modules.append({
                 "icon": "🤝",
                 "title": "Lieferanten-\nmanagement",
                 "desc": "Lieferantenpflege\nund Bewertung",
                 "enabled": True,
                 "command": self._open_lieferanten,
-            },
-        ]
+            })
+
+        # If no visible modules, show a placeholder card
+        if not modules:
+            modules.append({
+                "icon": "🔒",
+                "title": "Kein Zugang",
+                "desc": "Keine Module\nfreigeschaltet",
+                "enabled": False,
+                "command": None,
+            })
+
+        for col in range(len(modules)):
+            card_area.columnconfigure(col, weight=1)
+        card_area.rowconfigure(0, weight=1)
 
         for col, mod in enumerate(modules):
             self._make_card(card_area, col, mod)
@@ -126,7 +216,6 @@ class LauncherWindow:
         card = tk.Frame(parent, bg=bg, relief="flat", bd=0)
         card.grid(row=0, column=col, padx=8, sticky="nsew")
 
-        # Inner padding frame
         inner = tk.Frame(card, bg=bg)
         inner.pack(expand=True, fill="both", padx=16, pady=20)
 
@@ -165,16 +254,19 @@ class LauncherWindow:
         footer = tk.Frame(self.root, bg=self.BG)
         footer.pack(fill="x", padx=14, pady=5)
 
-        tk.Label(footer, text="v1.0  ·  Werkzeuge Suite",
+        # Display logged-in user
+        user_text = f"Angemeldet: {self.current_user.display_name or self.current_user.username}"
+        tk.Label(footer, text=f"v1.0  ·  Werkzeuge Suite  ·  {user_text}",
                  bg=self.BG, fg="#9AA5B4", font=("Segoe UI", 8)).pack(side=tk.LEFT)
 
-        admin_lbl = tk.Label(footer, text="🔒  Admin",
-                             bg=self.BG, fg="#9AA5B4",
-                             font=("Segoe UI", 8), cursor="hand2")
-        admin_lbl.pack(side=tk.RIGHT)
-        admin_lbl.bind("<Enter>", lambda e: admin_lbl.config(fg="#4472C4"))
-        admin_lbl.bind("<Leave>", lambda e: admin_lbl.config(fg="#9AA5B4"))
-        admin_lbl.bind("<Button-1>", lambda e: self._open_admin())
+        if self.permissions.is_admin:
+            admin_lbl = tk.Label(footer, text="🔒  Admin",
+                                 bg=self.BG, fg="#9AA5B4",
+                                 font=("Segoe UI", 8), cursor="hand2")
+            admin_lbl.pack(side=tk.RIGHT)
+            admin_lbl.bind("<Enter>", lambda e: admin_lbl.config(fg="#4472C4"))
+            admin_lbl.bind("<Leave>", lambda e: admin_lbl.config(fg="#9AA5B4"))
+            admin_lbl.bind("<Button-1>", lambda e: self._open_admin())
 
     # ------------------------------------------------------------------
     # Hover handlers
@@ -200,16 +292,18 @@ class LauncherWindow:
 
     def _open_wkz_bonus(self):
         self.root.destroy()
-        from src.ui.main_window import MainWindow  # deferred import
-        app = MainWindow()
+        from src.ui.main_window import MainWindow
+        app = MainWindow(current_user=self.current_user,
+                         permissions=self.permissions)
         app.run()
 
     def _open_lieferanten(self):
         self.root.destroy()
         from src.ui.supplier_window import SupplierWindow
-        app = SupplierWindow()
+        app = SupplierWindow(current_user=self.current_user,
+                             permissions=self.permissions)
         app.run()
 
     def _open_admin(self):
         from src.ui.admin_dialog import AdminDialog
-        AdminDialog(self.root)
+        AdminDialog(self.root, self.auth_service)

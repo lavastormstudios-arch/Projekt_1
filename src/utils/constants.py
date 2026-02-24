@@ -1,6 +1,12 @@
 import os
 
 DATA_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "data")
+USERS_FILE = os.path.join(DATA_DIR, "users.xlsx")
+
+DEPARTMENTS = ["CM", "Marketing", "Vertrieb", "SCM"]
+ROLES = ["Admin", "Abteilungsleiter", "Teamleiter", "Mitarbeiter"]
+MODULES = ["WKZ & Bonus", "Lieferantenmanagement"]
+ACTION_PERMISSIONS = ["can_edit", "can_delete", "can_invoice", "can_export", "can_import", "is_admin"]
 ENTRIES_FILE = os.path.join(DATA_DIR, "entries.xlsx")
 SUPPLIERS_FILE = os.path.join(DATA_DIR, "suppliers.xlsx")
 

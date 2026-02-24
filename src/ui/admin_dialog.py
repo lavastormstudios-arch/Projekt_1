@@ -18,8 +18,9 @@ def _hash(pin: str) -> str:
 # ---------------------------------------------------------------------------
 
 class AdminDialog:
-    def __init__(self, parent: tk.Misc):
+    def __init__(self, parent: tk.Misc, auth_service=None):
         self.parent = parent
+        self._auth_service = auth_service
         self._show_pin_prompt()
 
     def _show_pin_prompt(self):
@@ -48,7 +49,7 @@ class AdminDialog:
         def attempt():
             if self._verify(pin_var.get()):
                 dlg.destroy()
-                AdminSettingsDialog(self.parent)
+                AdminSettingsDialog(self.parent, self._auth_service)
             else:
                 pin_var.set("")
                 messagebox.showerror("Fehler", "Falscher PIN.", parent=dlg)
@@ -71,8 +72,9 @@ class AdminDialog:
 # ---------------------------------------------------------------------------
 
 class AdminSettingsDialog:
-    def __init__(self, parent: tk.Misc):
+    def __init__(self, parent: tk.Misc, auth_service=None):
         self.parent = parent
+        self._auth_service = auth_service
 
         self.dialog = tk.Toplevel(parent)
         self.dialog.title("Einstellungen — Admin")
@@ -127,6 +129,13 @@ class AdminSettingsDialog:
         btn_row.pack(pady=(0, 10))
         ttk.Button(btn_row, text="Speichern", command=self._save, width=12).pack(side=tk.LEFT, padx=6)
         ttk.Button(btn_row, text="Abbrechen", command=self.dialog.destroy, width=12).pack(side=tk.LEFT, padx=6)
+        if self._auth_service is not None:
+            ttk.Button(btn_row, text="Benutzerverwaltung",
+                       command=self._open_user_management, width=18).pack(side=tk.LEFT, padx=6)
+
+    def _open_user_management(self):
+        from src.ui.user_management_dialog import UserManagementDialog
+        UserManagementDialog(self.dialog, self._auth_service)
 
     # ── Tab: Import ────────────────────────────────────────────────────
 

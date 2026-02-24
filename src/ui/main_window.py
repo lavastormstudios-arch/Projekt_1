@@ -14,11 +14,14 @@ from src.utils.constants import DATA_DIR
 
 
 class MainWindow:
-    def __init__(self):
+    def __init__(self, current_user=None, permissions=None):
         self.root = tk.Tk()
         self.root.title("WKZ & Bonus Tracker")
         self.root.geometry("1100x700")
         self.root.minsize(900, 550)
+
+        self.current_user = current_user
+        self.permissions = permissions
 
         self.config_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "config.ini")
 
@@ -51,14 +54,27 @@ class MainWindow:
         # Periodic reminder check
         self._check_reminders()
 
+    def _can(self, perm: str) -> bool:
+        """Check a permission, defaults to True when no permissions object provided."""
+        if self.permissions is None:
+            return True
+        return bool(getattr(self.permissions, perm, True))
+
     def _build_menu(self):
         menubar = tk.Menu(self.root)
         self.root.config(menu=menubar)
 
         file_menu = tk.Menu(menubar, tearoff=0)
         file_menu.add_command(label="Neuer Eintrag (Strg+N)", command=self._new_entry)
-        file_menu.add_command(label="Export (Strg+E)", command=self._open_export)
-        file_menu.add_command(label="CSV Import", command=self._manual_csv_import)
+
+        export_state = tk.NORMAL if self._can("can_export") else tk.DISABLED
+        file_menu.add_command(label="Export (Strg+E)", command=self._open_export,
+                              state=export_state)
+
+        import_state = tk.NORMAL if self._can("can_import") else tk.DISABLED
+        file_menu.add_command(label="CSV Import", command=self._manual_csv_import,
+                              state=import_state)
+
         file_menu.add_separator()
         file_menu.add_command(label="Backup erstellen", command=self._backup)
         file_menu.add_separator()
@@ -66,7 +82,8 @@ class MainWindow:
         menubar.add_cascade(label="Datei", menu=file_menu)
 
         tools_menu = tk.Menu(menubar, tearoff=0)
-        tools_menu.add_command(label="E-Mail-Erinnerung senden", command=self._send_email_reminder)
+        tools_menu.add_command(label="E-Mail-Erinnerung senden",
+                               command=self._send_email_reminder)
         menubar.add_cascade(label="Tools", menu=tools_menu)
 
         help_menu = tk.Menu(menubar, tearoff=0)
@@ -81,9 +98,14 @@ class MainWindow:
 
         ttk.Button(toolbar, text="+ Neuer Eintrag", command=self._new_entry).pack(side=tk.LEFT, padx=2)
         ttk.Button(toolbar, text="Lieferanten", command=lambda: self._show_page("suppliers")).pack(side=tk.LEFT, padx=2)
-        ttk.Button(toolbar, text="CSV Import", command=self._manual_csv_import).pack(side=tk.LEFT, padx=2)
-        ttk.Button(toolbar, text="Export", command=self._open_export).pack(side=tk.LEFT, padx=2)
-        ttk.Button(toolbar, text="← Zurück zum Hauptmenü", command=self._back_to_launcher).pack(side=tk.RIGHT, padx=2)
+
+        if self._can("can_import"):
+            ttk.Button(toolbar, text="CSV Import", command=self._manual_csv_import).pack(side=tk.LEFT, padx=2)
+        if self._can("can_export"):
+            ttk.Button(toolbar, text="Export", command=self._open_export).pack(side=tk.LEFT, padx=2)
+
+        ttk.Button(toolbar, text="← Zurück zum Hauptmenü",
+                   command=self._back_to_launcher).pack(side=tk.RIGHT, padx=2)
 
     def _build_main_area(self):
         self.main_pane = ttk.PanedWindow(self.root, orient=tk.HORIZONTAL)
@@ -143,7 +165,6 @@ class MainWindow:
         self.current_page = page_key
         self.pages[page_key].show()
 
-        # Update nav selection
         if page_key in self._nav_keys:
             idx = self._nav_keys.index(page_key)
             self.nav_list.selection_clear(0, tk.END)
@@ -168,6 +189,8 @@ class MainWindow:
         SettingsDialog(self.root, self)
 
     def _auto_import_csv(self):
+        if not self._can("can_import"):
+            return
         try:
             config = configparser.ConfigParser()
             config.read(self.config_path, encoding="utf-8")
@@ -179,7 +202,6 @@ class MainWindow:
             pass
 
     def _manual_csv_import(self):
-        # Try configured path first, otherwise ask user
         config = configparser.ConfigParser()
         config.read(self.config_path, encoding="utf-8")
         csv_path = config.get("Import", "csv_path", fallback="").strip()
@@ -218,7 +240,6 @@ class MainWindow:
             self.statusbar.config(text=text)
         except Exception:
             pass
-        # Re-check every 60 minutes
         self.root.after(3600000, self._check_reminders)
 
     def refresh_current_page(self):

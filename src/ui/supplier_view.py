@@ -47,6 +47,11 @@ class SupplierPage:
     # Build
     # ------------------------------------------------------------------
 
+    def _can(self, perm: str) -> bool:
+        if self.app.permissions is None:
+            return True
+        return bool(getattr(self.app.permissions, perm, True))
+
     def _build(self):
         paned = ttk.PanedWindow(self.frame, orient=tk.HORIZONTAL)
         paned.pack(fill=tk.BOTH, expand=True)
@@ -89,6 +94,18 @@ class SupplierPage:
         vsb.pack(side=tk.RIGHT, fill=tk.Y)
         self.tree.bind("<<TreeviewSelect>>", self._on_supplier_select)
 
+        # Supplier CRUD buttons (shown only with edit/delete rights)
+        supplier_btn_frame = ttk.Frame(left)
+        supplier_btn_frame.pack(fill=tk.X, padx=10, pady=(0, 6))
+        if self._can("can_edit"):
+            ttk.Button(supplier_btn_frame, text="Neu",
+                       command=self._new_supplier).pack(side=tk.LEFT, padx=2)
+            ttk.Button(supplier_btn_frame, text="Bearbeiten",
+                       command=self._edit_supplier).pack(side=tk.LEFT, padx=2)
+        if self._can("can_delete"):
+            ttk.Button(supplier_btn_frame, text="Löschen",
+                       command=self._delete_supplier).pack(side=tk.LEFT, padx=2)
+
         # ── Right pane ─────────────────────────────────────────────────
         right = ttk.Frame(paned)
         paned.add(right, weight=1)
@@ -129,8 +146,9 @@ class SupplierPage:
         action_frame = ttk.Frame(parent)
         action_frame.pack(fill=tk.X, padx=12, pady=(0, 10))
 
-        ttk.Button(action_frame, text="Dokument hinzufügen",
-                   command=self._add_document).pack(side=tk.LEFT, padx=2)
+        if self._can("can_edit"):
+            ttk.Button(action_frame, text="Dokument hinzufügen",
+                       command=self._add_document).pack(side=tk.LEFT, padx=2)
         ttk.Button(action_frame, text="Datei öffnen",
                    command=self._open_file).pack(side=tk.LEFT, padx=2)
         ttk.Button(action_frame, text="Ordner öffnen in Explorer",
@@ -293,6 +311,35 @@ class SupplierPage:
         self._name_label.config(text=self._selected_supplier.name)
         self._set_panel_visible(True)
         self._refresh_all_categories()
+
+    # ------------------------------------------------------------------
+    # Supplier CRUD
+    # ------------------------------------------------------------------
+
+    def _new_supplier(self):
+        SupplierFormDialog(self.frame.winfo_toplevel(), self.app, supplier=None)
+
+    def _edit_supplier(self):
+        sel = self.tree.selection()
+        if not sel:
+            messagebox.showinfo("Hinweis", "Bitte einen Lieferanten auswählen.")
+            return
+        supplier = self.app.supplier_service.get_by_id(sel[0])
+        if supplier:
+            SupplierFormDialog(self.frame.winfo_toplevel(), self.app, supplier=supplier)
+
+    def _delete_supplier(self):
+        sel = self.tree.selection()
+        if not sel:
+            messagebox.showinfo("Hinweis", "Bitte einen Lieferanten auswählen.")
+            return
+        supplier = self.app.supplier_service.get_by_id(sel[0])
+        name = supplier.name if supplier else sel[0]
+        if messagebox.askyesno("Löschen", f"Lieferant '{name}' wirklich löschen?"):
+            self.app.supplier_service.delete(sel[0])
+            self._selected_supplier = None
+            self._set_panel_visible(False)
+            self.refresh()
 
     # ------------------------------------------------------------------
     # Document actions
