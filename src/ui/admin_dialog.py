@@ -82,7 +82,7 @@ class AdminSettingsDialog:
         self.dialog.transient(parent)
         self.dialog.grab_set()
 
-        w, h = 520, 480
+        w, h = 520, 520
         self.dialog.update_idletasks()
         x = parent.winfo_rootx() + (parent.winfo_width() - w) // 2
         y = parent.winfo_rooty() + (parent.winfo_height() - h) // 2
@@ -124,6 +124,7 @@ class AdminSettingsDialog:
         self._tab_documents(nb)
         self._tab_reminders(nb)
         self._tab_security(nb)
+        self._tab_invoice_numbers(nb)
 
         btn_row = ttk.Frame(self.dialog)
         btn_row.pack(pady=(0, 10))
@@ -255,6 +256,104 @@ class AdminSettingsDialog:
             row=4, column=0, columnspan=2, pady=14)
         ttk.Label(f, text="Felder leer lassen, wenn kein PIN-Wechsel gewünscht.",
                   foreground="gray").grid(row=5, column=0, columnspan=2, sticky=tk.W)
+
+    # ── Tab: Rechnungsnummern ──────────────────────────────────────────
+
+    def _tab_invoice_numbers(self, nb: ttk.Notebook):
+        from tkinter.scrolledtext import ScrolledText
+        f = ttk.Frame(nb, padding=16)
+        nb.add(f, text="Rechnungsnummern")
+
+        ttk.Label(f, text="Rechnungsnummern-Pool",
+                  font=("Segoe UI", 10, "bold")).pack(anchor=tk.W, pady=(0, 8))
+
+        from src.services.invoice_service import InvoiceService
+        self._invoice_service = InvoiceService()
+
+        self._pool_count_var = tk.StringVar()
+        self._pool_count_var.set(f"Verfügbar: {self._invoice_service.available_count()} Nummern")
+        ttk.Label(f, textvariable=self._pool_count_var).pack(anchor=tk.W, pady=(0, 12))
+
+        ttk.Label(
+            f,
+            text="Neue Nummern hinzufügen — Spalte aus Excel direkt einfügen (Strg+V):",
+            wraplength=460,
+        ).pack(anchor=tk.W, pady=(0, 4))
+        self._pool_text = ScrolledText(f, height=8, width=50, font=("Segoe UI", 9))
+        self._pool_text.pack(fill=tk.X, pady=(0, 8))
+
+        btn_row = ttk.Frame(f)
+        btn_row.pack(fill=tk.X)
+        ttk.Button(btn_row, text="Rechnungsnummern anzeigen",
+                   command=self._show_invoice_numbers).pack(side=tk.LEFT)
+        ttk.Button(btn_row, text="Hinzufügen",
+                   command=self._add_invoice_numbers).pack(side=tk.RIGHT)
+
+    @staticmethod
+    def _parse_excel_paste(raw: str) -> list:
+        """Extrahiert Nummern aus Excel-Einfügen (Tab-getrennte Spalten, Zeilenumbrüche)."""
+        numbers = []
+        for line in raw.splitlines():
+            # Erste Spalte nehmen (Excel trennt Spalten mit Tab)
+            cell = line.split("\t")[0].strip()
+            if cell:
+                numbers.append(cell)
+        return numbers
+
+    def _add_invoice_numbers(self):
+        raw = self._pool_text.get("1.0", tk.END)
+        numbers = self._parse_excel_paste(raw)
+        if not numbers:
+            messagebox.showwarning("Hinweis", "Keine Nummern eingegeben.", parent=self.dialog)
+            return
+        added = self._invoice_service.add_invoice_numbers(numbers)
+        skipped = len(numbers) - added
+        msg = f"{added} Nummer(n) hinzugefügt"
+        if skipped:
+            msg += f" ({skipped} Duplikat(e) ignoriert)"
+        self._pool_text.delete("1.0", tk.END)
+        self._pool_count_var.set(f"Verfügbar: {self._invoice_service.available_count()} Nummern")
+        messagebox.showinfo("Erfolg", msg, parent=self.dialog)
+
+    def _show_invoice_numbers(self):
+        pool = self._invoice_service._load_pool()
+        dlg = tk.Toplevel(self.dialog)
+        dlg.title("Rechnungsnummern-Pool")
+        dlg.transient(self.dialog)
+        dlg.grab_set()
+        dlg.resizable(True, True)
+        w, h = 520, 480
+        dlg.update_idletasks()
+        x = self.dialog.winfo_rootx() + (self.dialog.winfo_width() - w) // 2
+        y = self.dialog.winfo_rooty() + (self.dialog.winfo_height() - h) // 2
+        dlg.geometry(f"{w}x{h}+{x}+{y}")
+
+        nb2 = ttk.Notebook(dlg)
+        nb2.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
+
+        # Tab: Verfügbar
+        f_avail = ttk.Frame(nb2, padding=8)
+        nb2.add(f_avail, text=f"Verfügbar ({len(pool['available'])})")
+        ttk.Label(f_avail, text=f"{len(pool['available'])} Nummern verfügbar",
+                  font=("Segoe UI", 9, "italic"), foreground="gray").pack(anchor=tk.W, pady=(0, 6))
+        from tkinter.scrolledtext import ScrolledText as ST
+        ta = ST(f_avail, font=("Consolas", 9), state="normal")
+        ta.pack(fill=tk.BOTH, expand=True)
+        ta.insert("1.0", "\n".join(pool["available"]) if pool["available"] else "(leer)")
+        ta.configure(state="disabled")
+
+        # Tab: Verwendet
+        f_used = ttk.Frame(nb2, padding=8)
+        nb2.add(f_used, text=f"Verwendet ({len(pool['used'])})")
+        ttk.Label(f_used, text=f"{len(pool['used'])} Nummern bereits verwendet",
+                  font=("Segoe UI", 9, "italic"), foreground="gray").pack(anchor=tk.W, pady=(0, 6))
+        tu = ST(f_used, font=("Consolas", 9), state="normal")
+        tu.pack(fill=tk.BOTH, expand=True)
+        used_lines = [f"{u['number']}  –  {u['used_at']}" for u in pool["used"]]
+        tu.insert("1.0", "\n".join(used_lines) if used_lines else "(leer)")
+        tu.configure(state="disabled")
+
+        ttk.Button(dlg, text="Schließen", command=dlg.destroy).pack(pady=(0, 8))
 
     # ── PIN change ─────────────────────────────────────────────────────
 

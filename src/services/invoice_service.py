@@ -1,9 +1,12 @@
 import configparser
+import json
 import os
 import re
 import tempfile
-from datetime import date
+from datetime import date, datetime
 from typing import Optional
+
+INVOICE_POOL_FILE = os.path.join("data", "invoice_pool.json")
 
 DE_NAMES = {"deutschland", "germany", "de", "d"}
 
@@ -62,18 +65,43 @@ class InvoiceService:
 
         return result
 
+    def _load_pool(self) -> dict:
+        if not os.path.exists(INVOICE_POOL_FILE):
+            return {"available": [], "used": []}
+        with open(INVOICE_POOL_FILE, encoding="utf-8") as f:
+            return json.load(f)
+
+    def _save_pool(self, pool: dict):
+        with open(INVOICE_POOL_FILE, "w", encoding="utf-8") as f:
+            json.dump(pool, f, ensure_ascii=False, indent=2)
+
+    def available_count(self) -> int:
+        return len(self._load_pool()["available"])
+
+    def has_available_numbers(self, count: int = 1) -> bool:
+        return self.available_count() >= count
+
+    def add_invoice_numbers(self, numbers: list) -> int:
+        """Fügt neue Nummern zum Pool hinzu. Gibt Anzahl tatsächlich hinzugefügter zurück."""
+        pool = self._load_pool()
+        existing = {n for n in pool["available"]} | {u["number"] for u in pool["used"]}
+        new_nums = [n.strip() for n in numbers if n.strip() and n.strip() not in existing]
+        pool["available"].extend(new_nums)
+        self._save_pool(pool)
+        return len(new_nums)
+
     def get_next_invoice_number(self) -> str:
-        cfg = configparser.ConfigParser()
-        cfg.read(self.CONFIG_PATH, encoding="utf-8")
-        if not cfg.has_section("Invoice"):
-            cfg.add_section("Invoice")
-        last = cfg.getint("Invoice", "last_number", fallback=0)
-        next_num = last + 1
-        cfg.set("Invoice", "last_number", str(next_num))
-        with open(self.CONFIG_PATH, "w", encoding="utf-8") as fh:
-            cfg.write(fh)
-        year = date.today().year
-        return f"RE-{year}-{next_num:04d}"
+        pool = self._load_pool()
+        if not pool["available"]:
+            raise ValueError(
+                "Keine Rechnungsnummern mehr verfügbar.\n"
+                "Bitte neue Nummern bei der Buchhaltung anfordern\n"
+                "und im Admin-Bereich unter 'Rechnungsnummern' hinterlegen."
+            )
+        number = pool["available"].pop(0)
+        pool["used"].append({"number": number, "used_at": datetime.now().strftime("%Y-%m-%d %H:%M")})
+        self._save_pool(pool)
+        return number
 
     def build_context(self, entry, supplier, qty_map: Optional[dict] = None,
                       achieved_revenue: Optional[float] = None,

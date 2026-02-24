@@ -250,6 +250,19 @@ class EntryTablePage:
         from src.services.invoice_service import InvoiceService
         invoice_service = InvoiceService()
 
+        needed = len(entries)
+        avail = invoice_service.available_count()
+        if avail < needed:
+            messagebox.showerror(
+                "Keine Rechnungsnummern",
+                f"Nicht genug Rechnungsnummern verfügbar.\n\n"
+                f"Verfügbar: {avail}   |   Benötigt: {needed}\n\n"
+                "Bitte neue Nummern bei der Buchhaltung anfordern\n"
+                "und im Admin-Bereich unter 'Rechnungsnummern' hinterlegen.",
+                parent=self.app.root,
+            )
+            return
+
         if len(entries) == 1:
             entry = entries[0]
             supplier = self._resolve_supplier(entry)

@@ -17,11 +17,12 @@ env/
 # App config (contains credentials, machine-specific paths, PIN hash)
 config.ini
 
-# Business data (Excel stores)
+# Business data (Excel stores + runtime state)
 data/entries.xlsx
 data/suppliers.xlsx
 data/users.xlsx
 data/export_*.xlsx
+data/invoice_pool.json
 
 # Temp files
 *.bak
