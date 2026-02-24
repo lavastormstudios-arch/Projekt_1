@@ -264,7 +264,7 @@ class LauncherWindow:
 
         # Display logged-in user
         user_text = f"Angemeldet: {self.current_user.display_name or self.current_user.username}"
-        tk.Label(footer, text=f"v1.1  ·  Werkzeuge Suite  ·  Marc Lill  ·  {user_text}",
+        tk.Label(footer, text=f"v1.1  ·  Berger Management Tool  ·  Marc Lill  ·  {user_text}",
                  bg=self.BG, fg="#9AA5B4", font=("Segoe UI", 8)).pack(side=tk.LEFT)
 
         if self.permissions.is_admin:
