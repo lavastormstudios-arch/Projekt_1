@@ -250,7 +250,7 @@ class SupplierPage:
             cat_label = f"{cat}  ({len(files)})"
             self._all_files_tree.insert("", tk.END, iid=cat_iid,
                                         text=cat_label, values=("", ""),
-                                        open=len(files) > 0)
+                                        open=False)
             for path, name, size_str, mtime in files:
                 self._all_files_tree.insert(cat_iid, tk.END, iid=path,
                                             text=name, values=(size_str, mtime))
