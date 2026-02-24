@@ -77,8 +77,10 @@ class FobService:
         zinssatz_pro_tag = zinssatz_pa / 365.0
         lcl_pro_m3 = (fracht_40hc * 1.32) / 70.0
 
-        # Y: EK in €
-        if entry.ek_fob_dollar > 0:
+        # Y: EK in €  (Euro direkt, kein Wechselkurs)
+        if entry.ek_fob_euro > 0:
+            ek_in_eur = entry.ek_fob_euro
+        elif entry.ek_fob_dollar > 0:
             ek_in_eur = entry.ek_fob_dollar / eur_usd
         elif entry.ek_fob_rmb > 0:
             ek_in_eur = entry.ek_fob_rmb / eur_rmb

@@ -113,6 +113,7 @@ class FobFormDialog:
             ("Aktionspreis inkl. MwSt. (€)",  "aktionspreis"),
             ("EK FOB Dollar ($)",     "ek_fob_dollar"),
             ("EK FOB RMB (¥)",        "ek_fob_rmb"),
+            ("EK FOB Euro (€)",       "ek_fob_euro"),
         ]
         for row, (lbl, key) in enumerate(fields):
             self._add_field(f, row, lbl, key)
@@ -158,6 +159,7 @@ class FobFormDialog:
         sv("aktionspreis", e.aktionspreis if e.aktionspreis else "")
         sv("ek_fob_dollar", e.ek_fob_dollar if e.ek_fob_dollar else "")
         sv("ek_fob_rmb", e.ek_fob_rmb if e.ek_fob_rmb else "")
+        sv("ek_fob_euro", e.ek_fob_euro if e.ek_fob_euro else "")
         # zollsatz stored as fraction (e.g. 0.047), display as percent (4.7)
         sv("zollsatz_pct", f"{e.zollsatz * 100:.4g}" if e.zollsatz else "")
         sv("sonder_toolingkosten", e.sonder_toolingkosten if e.sonder_toolingkosten else "")
@@ -209,6 +211,7 @@ class FobFormDialog:
             aktionspreis=gf("aktionspreis"),
             ek_fob_dollar=gf("ek_fob_dollar"),
             ek_fob_rmb=gf("ek_fob_rmb"),
+            ek_fob_euro=gf("ek_fob_euro"),
             produktionszeit=gi("produktionszeit"),
             kubikmeter=gf("kubikmeter"),
             lcl=gb("lcl"),

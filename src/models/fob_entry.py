@@ -15,6 +15,7 @@ class FobEntry:
     aktionspreis: float = 0.0
     ek_fob_dollar: float = 0.0
     ek_fob_rmb: float = 0.0
+    ek_fob_euro: float = 0.0
     produktionszeit: int = 0
     kubikmeter: float = 0.0
     lcl: bool = False
