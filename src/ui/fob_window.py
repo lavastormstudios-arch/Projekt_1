@@ -1,5 +1,5 @@
 import tkinter as tk
-from tkinter import ttk, messagebox, filedialog
+from tkinter import ttk, messagebox
 
 from src.data.excel_store import ExcelStore
 from src.services.fob_service import FobService
@@ -64,12 +64,6 @@ class FobWindow:
             ttk.Button(toolbar, text="Löschen",
                        command=self._delete_entry).pack(side=tk.LEFT, padx=2)
 
-        if self.permissions and self.permissions.can_import:
-            ttk.Separator(toolbar, orient=tk.VERTICAL).pack(side=tk.LEFT, fill=tk.Y,
-                                                             padx=6, pady=2)
-            ttk.Button(toolbar, text="📥 SAP-Import",
-                       command=self._import_excel).pack(side=tk.LEFT, padx=2)
-
         # Archiv toggle on right side
         self._show_archiv_var = tk.BooleanVar(value=False)
         ttk.Checkbutton(toolbar, text="Archiv anzeigen",
@@ -108,28 +102,6 @@ class FobWindow:
         ):
             return
         self.fob_service.delete(entry.id)
-        self._after_save()
-
-    def _import_excel(self):
-        path = filedialog.askopenfilename(
-            parent=self.root,
-            title="SAP-Excel auswählen",
-            filetypes=[("Excel-Dateien", "*.xlsx *.xls"), ("Alle Dateien", "*.*")],
-        )
-        if not path:
-            return
-        try:
-            result = self.fob_service.import_from_excel(path)
-        except ValueError as exc:
-            messagebox.showerror("Import-Fehler", str(exc), parent=self.root)
-            return
-        msg = (
-            f"Import abgeschlossen:\n"
-            f"  Neu:          {result['new']}\n"
-            f"  Aktualisiert: {result['updated']}\n"
-            f"  Unverändert:  {result['skipped']}"
-        )
-        messagebox.showinfo("Import erfolgreich", msg, parent=self.root)
         self._after_save()
 
     def _toggle_archiv(self):
