@@ -182,8 +182,8 @@ class InvoiceService:
                 items.append({
                     "article_number": art_nr,
                     "qty": f"{qty:g}",
-                    "rate": f"{rate:.2f}",
-                    "line_amount": f"{line_amount:.2f}",
+                    "rate": f"{rate:.2f}".replace(".", ","),
+                    "line_amount": f"{line_amount:.2f}".replace(".", ","),
                 })
             net = round(net, 2)
             is_storno = False
@@ -231,9 +231,11 @@ class InvoiceService:
         # ── Storno / normal prefix & reference ───────────────────────────
         if entry.entry_type in (EntryType.WKZ, EntryType.KICKBACK):
             ctx["BELAST_PREFIX"] = "Storno Werbekosten-Rechnung" if is_storno else "Werbekosten-Rechnung"
-            ctx["ARTBON"] = ""  # Typ-Bezeichnung nicht doppelt anzeigen
+            ctx["ARTBON"] = f" – {entry.description}" if entry.description else ""
+            ctx["is_wkz_type"] = True
         else:
             ctx["BELAST_PREFIX"] = "Storno Belastungsanzeige " if is_storno else "Belastungsanzeige "
+            ctx["is_wkz_type"] = False
         ctx["ORIG_RENR"] = ""   # same RENR used → no separate reference line needed
         ctx["is_storno"] = is_storno
         ctx["net_raw"] = net
@@ -262,6 +264,7 @@ class InvoiceService:
         ctx.setdefault("bonus_tier", "")
         ctx.setdefault("bonus_percentage", "")
         ctx.setdefault("line_description", "")
+        ctx.setdefault("items", [])
 
         return ctx
 
