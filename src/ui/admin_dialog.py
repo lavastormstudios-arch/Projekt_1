@@ -123,6 +123,7 @@ class AdminSettingsDialog:
         self._tab_smtp(nb)
         self._tab_documents(nb)
         self._tab_reminders(nb)
+        self._tab_fob_params(nb)
         self._tab_security(nb)
         self._tab_invoice_numbers(nb)
 
@@ -230,6 +231,41 @@ class AdminSettingsDialog:
             value=self._g("Reminders", "warn_days_before", "7"))
         ttk.Entry(f, textvariable=self._v["warn_days"], width=8).grid(
             row=1, column=1, sticky=tk.W, padx=10)
+
+    # ── Tab: FOB-Parameter ─────────────────────────────────────────────
+
+    def _tab_fob_params(self, nb: ttk.Notebook):
+        f = ttk.Frame(nb, padding=16)
+        nb.add(f, text="FOB-Parameter")
+
+        ttk.Label(f, text="Kalkulations-Parameter",
+                  font=("Segoe UI", 10, "bold")).grid(
+            row=0, column=0, columnspan=3, sticky=tk.W, pady=(0, 10))
+
+        _fob_defaults = {
+            "eur_usd":        "1.16",
+            "eur_rmb":        "8.2443",
+            "fracht_40hc":    "4300.0",
+            "fracht_20":      "3200.0",
+            "zinssatz_pa":    "0.0368",
+            "frachtzeit_tage":"45",
+            "rekla_quote":    "0.015",
+        }
+
+        fields = [
+            ("fob_eur_usd",        "EUR / USD:",              self._g("FOB", "eur_usd",        _fob_defaults["eur_usd"])),
+            ("fob_eur_rmb",        "EUR / RMB:",              self._g("FOB", "eur_rmb",        _fob_defaults["eur_rmb"])),
+            ("fob_fracht_40hc",    'Fracht 40"HC (€):',       self._g("FOB", "fracht_40hc",    _fob_defaults["fracht_40hc"])),
+            ("fob_fracht_20",      'Fracht 20" (€):',         self._g("FOB", "fracht_20",      _fob_defaults["fracht_20"])),
+            ("fob_zinssatz_pa",    "Zinssatz p.a. (z.B. 0.0368 = 3,68%):", self._g("FOB", "zinssatz_pa",  _fob_defaults["zinssatz_pa"])),
+            ("fob_frachtzeit",     "Frachtzeit (Tage):",      self._g("FOB", "frachtzeit_tage",_fob_defaults["frachtzeit_tage"])),
+            ("fob_rekla_quote",    "Reklamationsquote (z.B. 0.015 = 1,5%):", self._g("FOB", "rekla_quote",  _fob_defaults["rekla_quote"])),
+        ]
+        for i, (key, label, val) in enumerate(fields, start=1):
+            ttk.Label(f, text=label).grid(row=i, column=0, sticky=tk.W, pady=4)
+            self._v[key] = tk.StringVar(value=val)
+            ttk.Entry(f, textvariable=self._v[key], width=18).grid(
+                row=i, column=1, padx=10, pady=4, sticky=tk.W)
 
     # ── Tab: Sicherheit ────────────────────────────────────────────────
 
@@ -426,6 +462,15 @@ class AdminSettingsDialog:
 
         ensure("Reminders")
         cfg.set("Reminders", "warn_days_before", str(warn_days))
+
+        ensure("FOB")
+        cfg.set("FOB", "eur_usd",         self._v["fob_eur_usd"].get().strip())
+        cfg.set("FOB", "eur_rmb",         self._v["fob_eur_rmb"].get().strip())
+        cfg.set("FOB", "fracht_40hc",     self._v["fob_fracht_40hc"].get().strip())
+        cfg.set("FOB", "fracht_20",       self._v["fob_fracht_20"].get().strip())
+        cfg.set("FOB", "zinssatz_pa",     self._v["fob_zinssatz_pa"].get().strip())
+        cfg.set("FOB", "frachtzeit_tage", self._v["fob_frachtzeit"].get().strip())
+        cfg.set("FOB", "rekla_quote",     self._v["fob_rekla_quote"].get().strip())
 
         with open(_CONFIG_PATH, "w", encoding="utf-8") as fh:
             cfg.write(fh)

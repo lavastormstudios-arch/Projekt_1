@@ -81,6 +81,7 @@ class AuthService:
         return Permissions(
             can_view_wkz_bonus=bool(dept_access.get("WKZ & Bonus", False)),
             can_view_lieferanten=bool(dept_access.get("Lieferantenmanagement", False)),
+            can_view_fob_kalkulation=bool(dept_access.get("FOB-Kalkulation", False)),
             can_edit=bool(role_rights.get("can_edit", False)),
             can_delete=bool(role_rights.get("can_delete", False)),
             can_invoice=bool(role_rights.get("can_invoice", False)),

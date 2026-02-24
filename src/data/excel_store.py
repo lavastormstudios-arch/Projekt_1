@@ -10,16 +10,17 @@ from src.models.supplier import Supplier
 from src.utils.constants import (
     DATA_DIR, ENTRIES_FILE, SUPPLIERS_FILE,
     USERS_FILE, DEPARTMENTS, ROLES, MODULES, ACTION_PERMISSIONS,
-    ENTRY_COLUMNS, SUPPLIER_COLUMNS
+    ENTRY_COLUMNS, SUPPLIER_COLUMNS,
+    FOB_KALKULATION_FILE, FOB_COLUMNS,
 )
 from src.utils.date_helpers import parse_date, format_date, safe_float, safe_int
 
 # Default permission tables
 _DEFAULT_MODULE_ACCESS = {
-    "CM":        {"WKZ & Bonus": True,  "Lieferantenmanagement": True},
-    "Marketing": {"WKZ & Bonus": False, "Lieferantenmanagement": True},
-    "Vertrieb":  {"WKZ & Bonus": True,  "Lieferantenmanagement": True},
-    "SCM":       {"WKZ & Bonus": True,  "Lieferantenmanagement": True},
+    "CM":        {"WKZ & Bonus": True,  "Lieferantenmanagement": True,  "FOB-Kalkulation": True},
+    "Marketing": {"WKZ & Bonus": False, "Lieferantenmanagement": True,  "FOB-Kalkulation": False},
+    "Vertrieb":  {"WKZ & Bonus": True,  "Lieferantenmanagement": True,  "FOB-Kalkulation": False},
+    "SCM":       {"WKZ & Bonus": True,  "Lieferantenmanagement": True,  "FOB-Kalkulation": True},
 }
 
 _DEFAULT_ACTION_RIGHTS = {
@@ -35,6 +36,7 @@ class ExcelStore:
         os.makedirs(DATA_DIR, exist_ok=True)
         self._ensure_file(ENTRIES_FILE, ENTRY_COLUMNS)
         self._ensure_file(SUPPLIERS_FILE, SUPPLIER_COLUMNS)
+        self._ensure_file(FOB_KALKULATION_FILE, FOB_COLUMNS)
 
     def _ensure_file(self, path: str, columns: list):
         if not os.path.exists(path):
@@ -164,6 +166,75 @@ class ExcelStore:
         suppliers = [s for s in self.load_suppliers() if s.id != supplier_id]
         self.save_suppliers(suppliers)
 
+    # --- FOB-Kalkulation ---
+
+    def load_fob_entries(self):
+        from src.models.fob_entry import FobEntry
+        wb = load_workbook(FOB_KALKULATION_FILE)
+        ws = wb.active
+        entries = []
+        headers = [cell.value for cell in ws[1]]
+        for row in ws.iter_rows(min_row=2, values_only=True):
+            if row[0] is None:
+                continue
+            data = dict(zip(headers, row))
+            entry = FobEntry(
+                id=str(data.get("id", "")),
+                artnr=str(data.get("artnr", "") or ""),
+                bezeichnung=str(data.get("bezeichnung", "") or ""),
+                lieferant=str(data.get("lieferant", "") or ""),
+                warengruppe=str(data.get("warengruppe", "") or ""),
+                cm=str(data.get("cm", "") or ""),
+                aktuelle_ztn=str(data.get("aktuelle_ztn", "") or ""),
+                aktueller_ek=safe_float(data.get("aktueller_ek")),
+                geplanter_uvp=safe_float(data.get("geplanter_uvp")),
+                aktionspreis=safe_float(data.get("aktionspreis")),
+                ek_fob_dollar=safe_float(data.get("ek_fob_dollar")),
+                ek_fob_rmb=safe_float(data.get("ek_fob_rmb")),
+                produktionszeit=safe_int(data.get("produktionszeit")),
+                kubikmeter=safe_float(data.get("kubikmeter")),
+                lcl=bool(data.get("lcl", False)),
+                container_20=safe_int(data.get("container_20")),
+                container_40hc=safe_int(data.get("container_40hc")),
+                zollsatz=safe_float(data.get("zollsatz")),
+                sonder_toolingkosten=safe_float(data.get("sonder_toolingkosten")),
+                archiv=bool(data.get("archiv", False)),
+            )
+            entries.append(entry)
+        wb.close()
+        return entries
+
+    def save_fob_entries(self, entries):
+        wb = Workbook()
+        ws = wb.active
+        ws.append(FOB_COLUMNS)
+        for e in entries:
+            ws.append([
+                e.id, e.artnr, e.bezeichnung, e.lieferant, e.warengruppe,
+                e.cm, e.aktuelle_ztn, e.aktueller_ek, e.geplanter_uvp,
+                e.aktionspreis, e.ek_fob_dollar, e.ek_fob_rmb,
+                e.produktionszeit, e.kubikmeter, e.lcl, e.container_20,
+                e.container_40hc, e.zollsatz, e.sonder_toolingkosten, e.archiv,
+            ])
+        wb.save(FOB_KALKULATION_FILE)
+
+    def add_fob_entry(self, entry):
+        entries = self.load_fob_entries()
+        entries.append(entry)
+        self.save_fob_entries(entries)
+
+    def update_fob_entry(self, entry):
+        entries = self.load_fob_entries()
+        for i, e in enumerate(entries):
+            if e.id == entry.id:
+                entries[i] = entry
+                break
+        self.save_fob_entries(entries)
+
+    def delete_fob_entry(self, entry_id: str):
+        entries = [e for e in self.load_fob_entries() if e.id != entry_id]
+        self.save_fob_entries(entries)
+
     # --- Users ---
 
     def _ensure_users_file(self):
@@ -239,12 +310,21 @@ class ExcelStore:
         for dept in DEPARTMENTS:
             if dept not in result:
                 result[dept] = dict(_DEFAULT_MODULE_ACCESS.get(dept, {m: False for m in MODULES}))
+        # Fill missing modules within existing departments (e.g. after adding a new module)
+        for dept in result:
+            for mod in MODULES:
+                if mod not in result[dept]:
+                    result[dept][mod] = _DEFAULT_MODULE_ACCESS.get(dept, {}).get(mod, False)
         return result
 
     def save_module_access(self, matrix: dict):
         """matrix: {department: {module: bool}}"""
         wb = self._open_users_wb()
         ws = wb["Modulzugriff"]
+        # Rewrite header row so new modules are persisted
+        ws.cell(1, 1, "department")
+        for j, mod in enumerate(MODULES, start=2):
+            ws.cell(1, j, mod)
         for row in ws.iter_rows(min_row=2):
             for cell in row:
                 cell.value = None

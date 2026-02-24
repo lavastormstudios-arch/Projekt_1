@@ -15,6 +15,7 @@ class Permissions:
     # Module access (from department)
     can_view_wkz_bonus: bool = False
     can_view_lieferanten: bool = False
+    can_view_fob_kalkulation: bool = False
     # Action rights (from role)
     can_edit: bool = False
     can_delete: bool = False

@@ -29,7 +29,11 @@ def safe_float(value, default: float = 0.0) -> float:
     try:
         return float(value)
     except (ValueError, TypeError):
-        return default
+        # Handle German decimal comma (e.g. "954,25" → 954.25)
+        try:
+            return float(str(value).replace(",", "."))
+        except (ValueError, TypeError):
+            return default
 
 
 def safe_int(value, default: int = 0) -> int:

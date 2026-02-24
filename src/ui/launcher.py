@@ -175,13 +175,22 @@ class LauncherWindow:
                 "enabled": True,
                 "command": self._open_wkz_bonus,
             })
-        modules.append({
-            "icon": "📦",
-            "title": "FOB-Kalkulation",
-            "desc": "Preiskalkulation\nfür FOB-Importe",
-            "enabled": False,
-            "command": None,
-        })
+        if p.can_view_fob_kalkulation:
+            modules.append({
+                "icon": "📦",
+                "title": "FOB-Kalkulation",
+                "desc": "Preiskalkulation\nfür FOB-Importe",
+                "enabled": True,
+                "command": self._open_fob_kalkulation,
+            })
+        else:
+            modules.append({
+                "icon": "📦",
+                "title": "FOB-Kalkulation",
+                "desc": "Preiskalkulation\nfür FOB-Importe",
+                "enabled": False,
+                "command": None,
+            })
         modules.append({
             "icon": "📣",
             "title": "Kampagnen",
@@ -303,6 +312,13 @@ class LauncherWindow:
         from src.ui.main_window import MainWindow
         app = MainWindow(current_user=self.current_user,
                          permissions=self.permissions)
+        app.run()
+
+    def _open_fob_kalkulation(self):
+        self.root.destroy()
+        from src.ui.fob_window import FobWindow
+        app = FobWindow(current_user=self.current_user,
+                        permissions=self.permissions)
         app.run()
 
     def _open_lieferanten(self):
