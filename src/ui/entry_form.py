@@ -30,7 +30,7 @@ class EntryFormDialog:
             self._populate()
 
     def _build(self, default_type):
-        canvas = tk.Canvas(self.dialog)
+        canvas = tk.Canvas(self.dialog, takefocus=False)
         scrollbar = ttk.Scrollbar(self.dialog, orient=tk.VERTICAL, command=canvas.yview)
         self.form_frame = ttk.Frame(canvas)
 
@@ -86,13 +86,8 @@ class EntryFormDialog:
         self._amount_entry.grid(row=row, column=1, padx=10, pady=5, sticky=tk.W)
         row += 1
 
-        self._amount_billed_row = row
-        self._amount_billed_label = ttk.Label(f, text="Betrag (abgerechnet):")
-        self._amount_billed_label.grid(row=row, column=0, sticky=tk.W, padx=10, pady=5)
+        # Betrag abgerechnet: hidden variable only — set automatically when invoicing
         self._vars["amount_billed"] = tk.StringVar(value="0.00")
-        self._amount_billed_entry = ttk.Entry(f, textvariable=self._vars["amount_billed"], width=15)
-        self._amount_billed_entry.grid(row=row, column=1, padx=10, pady=5, sticky=tk.W)
-        row += 1
 
         # Dates (date_billed removed from UI — set automatically when invoicing)
         for field, label in [("date_start", "Beginn (TT.MM.JJ):"),
@@ -244,12 +239,10 @@ class EntryFormDialog:
     def _toggle_type_fields(self):
         entry_type = self._vars["entry_type"].get()
 
-        # Restore common amount fields to default visible/enabled state
+        # Restore amount field to default visible/enabled state
         self._amount_label.grid(row=self._amount_row, column=0, sticky=tk.W, padx=10, pady=5)
         self._amount_entry.grid(row=self._amount_row, column=1, padx=10, pady=5, sticky=tk.W)
         self._amount_entry.config(state="normal")
-        self._amount_billed_label.grid(row=self._amount_billed_row, column=0, sticky=tk.W, padx=10, pady=5)
-        self._amount_billed_entry.grid(row=self._amount_billed_row, column=1, padx=10, pady=5, sticky=tk.W)
 
         # Hide all type-specific
         self._kb_frame_label.grid_remove()
@@ -279,11 +272,9 @@ class EntryFormDialog:
             self._ub_container.grid(row=self._ub_row, column=1, padx=10, pady=5, sticky=tk.W)
             self._ub_repeat_lbl.grid(row=self._ub_repeat_row, column=0, sticky=tk.W, padx=10, pady=5)
             self._ub_repeat_cb.grid(row=self._ub_repeat_row, column=1, padx=10, pady=5, sticky=tk.W)
-            # Betrag-Felder ausblenden — werden bei Umsatzbonus nicht benötigt
+            # Betrag (erwartet) ausblenden — bei Umsatzbonus nicht relevant
             self._amount_label.grid_remove()
             self._amount_entry.grid_remove()
-            self._amount_billed_label.grid_remove()
-            self._amount_billed_entry.grid_remove()
             if not self._ub_rows:
                 self._add_umsatzbonus_row()
             if not self.is_edit:
