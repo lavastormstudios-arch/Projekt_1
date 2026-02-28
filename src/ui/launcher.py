@@ -24,10 +24,19 @@ class LauncherWindow:
         self.root.configure(bg=self.BG)
 
         # Auth
-        from src.data.excel_store import ExcelStore
-        from src.services.auth_service import AuthService
+        import configparser as _cp
+        _cfg = _cp.ConfigParser()
+        _cfg.read(os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(
+            os.path.abspath(__file__)))), "config.ini"))
+        _db_url = _cfg.get("Database", "url", fallback="").strip() or None
+        if _db_url:
+            from src.data.database_store import DatabaseStore
+            self.store = DatabaseStore(_db_url)
+        else:
+            from src.data.excel_store import ExcelStore
+            self.store = ExcelStore()
 
-        self.store = ExcelStore()
+        from src.services.auth_service import AuthService
         self.auth_service = AuthService(self.store)
 
         # Bootstrap check
@@ -52,6 +61,8 @@ class LauncherWindow:
         self._build_ui()
 
     def run(self):
+        from src.utils.updater import check_for_update
+        self.root.after(500, lambda: check_for_update(self.root))
         self.root.mainloop()
 
     def _center_window(self, w, h):

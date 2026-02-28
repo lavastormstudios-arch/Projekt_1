@@ -1,7 +1,6 @@
 import tkinter as tk
 from tkinter import ttk, messagebox
 
-from src.data.excel_store import ExcelStore
 from src.services.fob_service import FobService
 
 
@@ -17,7 +16,18 @@ class FobWindow:
         self.current_user = current_user
         self.permissions = permissions
 
-        self.store = ExcelStore()
+        import os, configparser as _cp
+        _config_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(
+            os.path.abspath(__file__)))), "config.ini")
+        _cfg = _cp.ConfigParser()
+        _cfg.read(_config_path)
+        _db_url = _cfg.get("Database", "url", fallback="").strip() or None
+        if _db_url:
+            from src.data.database_store import DatabaseStore
+            self.store = DatabaseStore(_db_url)
+        else:
+            from src.data.excel_store import ExcelStore
+            self.store = ExcelStore()
         self.fob_service = FobService(self.store)
 
         self._build_toolbar()

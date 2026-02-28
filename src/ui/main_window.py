@@ -5,7 +5,6 @@ import shutil
 from datetime import datetime
 import os
 
-from src.data.excel_store import ExcelStore
 from src.services.entry_service import EntryService
 from src.services.supplier_service import SupplierService
 from src.services.reminder_service import ReminderService
@@ -25,8 +24,17 @@ class MainWindow:
 
         self.config_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "config.ini")
 
-        # Services
-        self.store = ExcelStore()
+        # Store: use DatabaseStore if [Database] url is configured, else Excel
+        import configparser as _cp
+        _cfg = _cp.ConfigParser()
+        _cfg.read(self.config_path)
+        _db_url = _cfg.get("Database", "url", fallback="").strip() or None
+        if _db_url:
+            from src.data.database_store import DatabaseStore
+            self.store = DatabaseStore(_db_url)
+        else:
+            from src.data.excel_store import ExcelStore
+            self.store = ExcelStore()
         self.entry_service = EntryService(self.store)
         self.supplier_service = SupplierService(self.store)
         self.reminder_service = ReminderService(self.entry_service)

@@ -23,6 +23,7 @@ data/suppliers.xlsx
 data/users.xlsx
 data/export_*.xlsx
 data/invoice_pool.json
+data/local.db
 
 # Temp files
 *.bak
