@@ -206,6 +206,12 @@ class EntryTablePage:
             # Keep existing multi-selection if right-clicking an already selected row
             if item not in self.tree.selection():
                 self.tree.selection_set(item)
+            # Dynamically enable/disable billing-related menu items
+            entry = self.app.entry_service.get_by_id(item)
+            is_final = entry and entry.status in (EntryStatus.ABGERECHNET, EntryStatus.STORNIERT)
+            state = "disabled" if is_final else "normal"
+            self.context_menu.entryconfigure("Als abgerechnet markieren", state=state)
+            self.context_menu.entryconfigure("Rechnung erstellen", state=state)
             self.context_menu.post(event.x_root, event.y_root)
 
     def _on_selection_change(self, event=None):
@@ -235,17 +241,47 @@ class EntryTablePage:
 
     def _mark_billed(self):
         entry = self._get_selected_entry()
-        if entry:
-            from datetime import date
-            entry.status = EntryStatus.ABGERECHNET
-            entry.date_billed = date.today()
-            self.app.entry_service.update(entry)
-            self.app.refresh_current_page()
+        if not entry:
+            return
+        if entry.status in (EntryStatus.ABGERECHNET, EntryStatus.STORNIERT):
+            messagebox.showinfo(
+                "Nicht möglich",
+                "Dieser Eintrag wurde bereits abgerechnet und kann nicht erneut abgerechnet werden.",
+                parent=self.app.root,
+            )
+            return
+        from datetime import date
+        entry.status = EntryStatus.ABGERECHNET
+        entry.date_billed = date.today()
+        self.app.entry_service.update(entry)
+        if (getattr(entry, "jaehrlich_wiederholen", False)
+                and entry.entry_type == EntryType.UMSATZBONUS):
+            self.app.entry_service.create_annual_followup(entry)
+            messagebox.showinfo(
+                "Wiederholeintrag erstellt",
+                "Ein neuer Eintrag für das nächste Jahr wurde automatisch erstellt.",
+                parent=self.app.root,
+            )
+        self.app.refresh_current_page()
 
     def _create_invoice(self):
         entries = self._get_selected_entries()
         if not entries:
             return
+
+        # Filter out already-billed/storniert entries
+        billable = [e for e in entries if e.status not in (EntryStatus.ABGERECHNET, EntryStatus.STORNIERT)]
+        skipped = [e for e in entries if e not in billable]
+        if skipped:
+            names = "\n".join(f"  \u2022 {e.description} ({e.status.value})" for e in skipped)
+            messagebox.showwarning(
+                "Einige übersprungen",
+                f"Folgende Einträge sind bereits abgerechnet/storniert und werden übersprungen:\n{names}",
+                parent=self.app.root,
+            )
+        if not billable:
+            return
+        entries = billable
 
         from src.services.invoice_service import InvoiceService
         invoice_service = InvoiceService()

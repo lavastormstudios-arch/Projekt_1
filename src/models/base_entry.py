@@ -24,6 +24,7 @@ class Entry:
     kickback_articles: str = ""
     # Umsatzbonus-specific (multi-tier as JSON)
     umsatzbonus_staffeln: str = ""
+    jaehrlich_wiederholen: bool = False
     # WKZ-specific
     wkz_is_percentage: bool = False
     wkz_percentage: float = 0.0

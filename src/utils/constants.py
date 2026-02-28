@@ -22,7 +22,7 @@ ENTRY_COLUMNS = [
     "id", "entry_type", "supplier_id", "supplier_name", "description",
     "status", "amount", "amount_billed", "date_start", "date_end",
     "billing_deadline", "date_billed", "kickback_articles",
-    "umsatzbonus_staffeln", "wkz_is_percentage", "wkz_percentage",
+    "umsatzbonus_staffeln", "jaehrlich_wiederholen", "wkz_is_percentage", "wkz_percentage",
     "wkz_category", "notes", "created_at", "invoice_number"
 ]
 
@@ -43,6 +43,7 @@ ENTRY_COLUMN_LABELS = {
     "date_billed": "Abgerechnet am",
     "kickback_articles": "Kickback-Artikel",
     "umsatzbonus_staffeln": "Umsatzbonus-Staffeln",
+    "jaehrlich_wiederholen": "Jährlich wiederholen",
     "wkz_is_percentage": "WKZ Prozentual",
     "wkz_percentage": "WKZ Prozent",
     "wkz_category": "WKZ Kategorie",

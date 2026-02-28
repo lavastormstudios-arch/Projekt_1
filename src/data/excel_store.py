@@ -74,6 +74,7 @@ class ExcelStore:
                 date_billed=parse_date(data.get("date_billed")),
                 kickback_articles=str(data.get("kickback_articles", "") or ""),
                 umsatzbonus_staffeln=str(data.get("umsatzbonus_staffeln", "") or ""),
+                jaehrlich_wiederholen=bool(data.get("jaehrlich_wiederholen", False)),
                 wkz_is_percentage=bool(data.get("wkz_is_percentage", False)),
                 wkz_percentage=safe_float(data.get("wkz_percentage")),
                 wkz_category=str(data.get("wkz_category", "") or ""),
@@ -96,7 +97,7 @@ class ExcelStore:
                 format_date(e.date_start), format_date(e.date_end),
                 format_date(e.billing_deadline), format_date(e.date_billed),
                 e.kickback_articles,
-                e.umsatzbonus_staffeln,
+                e.umsatzbonus_staffeln, e.jaehrlich_wiederholen,
                 e.wkz_is_percentage, e.wkz_percentage,
                 e.wkz_category, e.notes, e.created_at, e.invoice_number
             ])

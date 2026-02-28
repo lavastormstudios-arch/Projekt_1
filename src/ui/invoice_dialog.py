@@ -242,6 +242,15 @@ class InvoiceDialog:
             self.entry.invoice_number = context["invoice_number"]
             self.entry.amount_billed = context["net_raw"]
             self.entry_service.update(self.entry)
+            # Auto-create next year's entry if annual recurrence is set
+            if (getattr(self.entry, "jaehrlich_wiederholen", False)
+                    and self.entry.entry_type == EntryType.UMSATZBONUS):
+                self.entry_service.create_annual_followup(self.entry)
+                messagebox.showinfo(
+                    "Wiederholeintrag erstellt",
+                    "Ein neuer Eintrag für das nächste Jahr wurde automatisch erstellt.",
+                    parent=self.dialog,
+                )
 
         abs_path = os.path.abspath(pdf_path)
         messagebox.showinfo(
@@ -455,6 +464,9 @@ class BulkInvoiceDialog:
                     entry.invoice_number = context["invoice_number"]
                     entry.amount_billed = context["net_raw"]
                     self.entry_service.update(entry)
+                    if (getattr(entry, "jaehrlich_wiederholen", False)
+                            and entry.entry_type == EntryType.UMSATZBONUS):
+                        self.entry_service.create_annual_followup(entry)
 
                 inv_num = context.get("invoice_number", "")
                 row_data["status_var"].set(f"  ✓ {inv_num}")

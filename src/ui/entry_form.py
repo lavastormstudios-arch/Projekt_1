@@ -126,6 +126,13 @@ class EntryFormDialog:
         self._ub_row = row
         row += 1
 
+        # Umsatzbonus: annual recurrence checkbox
+        self._ub_repeat_lbl = ttk.Label(f, text="Jährlich wiederholen:")
+        self._vars["jaehrlich_wiederholen"] = tk.BooleanVar(value=False)
+        self._ub_repeat_cb = ttk.Checkbutton(f, variable=self._vars["jaehrlich_wiederholen"])
+        self._ub_repeat_row = row
+        row += 1
+
         # WKZ-specific fields
         self._wkz_widgets = []
 
@@ -234,6 +241,8 @@ class EntryFormDialog:
         self._kb_container.grid_remove()
         self._ub_frame_label.grid_remove()
         self._ub_container.grid_remove()
+        self._ub_repeat_lbl.grid_remove()
+        self._ub_repeat_cb.grid_remove()
         for lbl, widget, r in self._wkz_widgets:
             lbl.grid_remove()
             widget.grid_remove()
@@ -255,9 +264,13 @@ class EntryFormDialog:
         elif entry_type == EntryType.UMSATZBONUS.value:
             self._ub_frame_label.grid(row=self._ub_row, column=0, sticky=tk.NW, padx=10, pady=5)
             self._ub_container.grid(row=self._ub_row, column=1, padx=10, pady=5, sticky=tk.W)
+            self._ub_repeat_lbl.grid(row=self._ub_repeat_row, column=0, sticky=tk.W, padx=10, pady=5)
+            self._ub_repeat_cb.grid(row=self._ub_repeat_row, column=1, padx=10, pady=5, sticky=tk.W)
             self._amount_entry.config(state="normal")
             if not self._ub_rows:
                 self._add_umsatzbonus_row()
+            if not self.is_edit:
+                self._vars["jaehrlich_wiederholen"].set(True)
         else:
             self._amount_entry.config(state="normal")
 
@@ -276,6 +289,7 @@ class EntryFormDialog:
         self._vars["wkz_is_percentage"].set(e.wkz_is_percentage)
         self._vars["wkz_percentage"].set(str(e.wkz_percentage))
         self._vars["wkz_category"].set(e.wkz_category)
+        self._vars["jaehrlich_wiederholen"].set(getattr(e, "jaehrlich_wiederholen", False))
         self.notes_text.insert("1.0", e.notes)
 
         # Populate kickback articles
@@ -388,6 +402,7 @@ class EntryFormDialog:
         except ValueError:
             entry.wkz_percentage = 0.0
         entry.wkz_category = self._vars["wkz_category"].get()
+        entry.jaehrlich_wiederholen = self._vars["jaehrlich_wiederholen"].get()
         entry.notes = self.notes_text.get("1.0", tk.END).strip()
 
         if self.is_edit:

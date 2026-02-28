@@ -79,3 +79,35 @@ class EntryService:
                 changed = True
         if changed:
             self.store.save_entries(entries)
+
+    def create_annual_followup(self, entry: Entry) -> Entry:
+        """Creates and saves a copy of a Umsatzbonus entry shifted by one year."""
+        import uuid
+
+        def shift_year(d):
+            if d is None:
+                return None
+            try:
+                return d.replace(year=d.year + 1)
+            except ValueError:  # Feb 29 in non-leap year
+                return d.replace(year=d.year + 1, day=28)
+
+        new_entry = Entry(
+            id=str(uuid.uuid4())[:8],
+            entry_type=entry.entry_type,
+            supplier_id=entry.supplier_id,
+            supplier_name=entry.supplier_name,
+            description=entry.description,
+            status=EntryStatus.OFFEN,
+            amount=entry.amount,
+            amount_billed=0.0,
+            date_start=shift_year(entry.date_start),
+            date_end=shift_year(entry.date_end),
+            billing_deadline=shift_year(entry.billing_deadline),
+            date_billed=None,
+            umsatzbonus_staffeln=entry.umsatzbonus_staffeln,
+            notes=entry.notes,
+            jaehrlich_wiederholen=True,
+        )
+        self.add(new_entry)
+        return new_entry
