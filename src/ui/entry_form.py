@@ -324,6 +324,22 @@ class EntryFormDialog:
 
         entry_type = EntryType(self._vars["entry_type"].get())
 
+        # Uniqueness check: only one active Umsatzbonus per supplier
+        if entry_type == EntryType.UMSATZBONUS:
+            exclude_id = self.entry.id if self.is_edit else None
+            existing = self.app.entry_service.get_active_umsatzbonus_for_supplier(
+                supplier_id, supplier_name, exclude_id=exclude_id
+            )
+            if existing:
+                messagebox.showwarning(
+                    "Bereits vorhanden",
+                    f"Für '{supplier_name}' existiert bereits ein aktiver Umsatzbonus-Eintrag "
+                    f"(ID: {existing.id} – \"{existing.description}\").\n\n"
+                    "Es kann nur einen aktiven Umsatzbonus pro Lieferant geben.",
+                    parent=self.dialog,
+                )
+                return
+
         # For kickback: calculate amount from articles
         kickback_articles = []
         umsatzbonus_staffeln = []

@@ -80,6 +80,24 @@ class EntryService:
         if changed:
             self.store.save_entries(entries)
 
+    def get_active_umsatzbonus_for_supplier(
+        self, supplier_id: str, supplier_name: str, exclude_id: str = None
+    ) -> Optional[Entry]:
+        """Returns an active (non-billed, non-cancelled) Umsatzbonus entry for the supplier, or None."""
+        final = (EntryStatus.ABGERECHNET, EntryStatus.STORNIERT)
+        for e in self.get_all():
+            if e.entry_type != EntryType.UMSATZBONUS:
+                continue
+            if exclude_id and e.id == exclude_id:
+                continue
+            if e.status in final:
+                continue
+            if supplier_id and e.supplier_id and e.supplier_id == supplier_id:
+                return e
+            if e.supplier_name.lower() == supplier_name.lower():
+                return e
+        return None
+
     def create_annual_followup(self, entry: Entry) -> Entry:
         """Creates and saves a copy of a Umsatzbonus entry shifted by one year."""
         import uuid
