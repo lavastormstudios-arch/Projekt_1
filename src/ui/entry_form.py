@@ -77,29 +77,35 @@ class EntryFormDialog:
             row=row, column=1, padx=10, pady=5, sticky=tk.W)
         row += 1
 
-        # Amount
-        ttk.Label(f, text="Betrag (erwartet):").grid(row=row, column=0, sticky=tk.W, padx=10, pady=5)
+        # Amount (stored with row ref so Umsatzbonus can hide them)
+        self._amount_row = row
+        self._amount_label = ttk.Label(f, text="Betrag (erwartet):")
+        self._amount_label.grid(row=row, column=0, sticky=tk.W, padx=10, pady=5)
         self._vars["amount"] = tk.StringVar(value="0.00")
         self._amount_entry = ttk.Entry(f, textvariable=self._vars["amount"], width=15)
         self._amount_entry.grid(row=row, column=1, padx=10, pady=5, sticky=tk.W)
         row += 1
 
-        ttk.Label(f, text="Betrag (abgerechnet):").grid(row=row, column=0, sticky=tk.W, padx=10, pady=5)
+        self._amount_billed_row = row
+        self._amount_billed_label = ttk.Label(f, text="Betrag (abgerechnet):")
+        self._amount_billed_label.grid(row=row, column=0, sticky=tk.W, padx=10, pady=5)
         self._vars["amount_billed"] = tk.StringVar(value="0.00")
-        ttk.Entry(f, textvariable=self._vars["amount_billed"], width=15).grid(
-            row=row, column=1, padx=10, pady=5, sticky=tk.W)
+        self._amount_billed_entry = ttk.Entry(f, textvariable=self._vars["amount_billed"], width=15)
+        self._amount_billed_entry.grid(row=row, column=1, padx=10, pady=5, sticky=tk.W)
         row += 1
 
-        # Dates
+        # Dates (date_billed removed from UI — set automatically when invoicing)
         for field, label in [("date_start", "Beginn (JJJJ-MM-TT):"),
                              ("date_end", "Ende (JJJJ-MM-TT):"),
-                             ("billing_deadline", "Abrechnungsfrist (JJJJ-MM-TT):"),
-                             ("date_billed", "Abgerechnet am (JJJJ-MM-TT):")]:
+                             ("billing_deadline", "Abrechnungsfrist (JJJJ-MM-TT):")]:
             ttk.Label(f, text=label).grid(row=row, column=0, sticky=tk.W, padx=10, pady=5)
             self._vars[field] = tk.StringVar()
             ttk.Entry(f, textvariable=self._vars[field], width=15).grid(
                 row=row, column=1, padx=10, pady=5, sticky=tk.W)
             row += 1
+
+        # Hidden: date_billed preserved on edit but not shown
+        self._vars["date_billed"] = tk.StringVar()
 
         # Type-specific fields
         self._type_rows_start = row
@@ -236,6 +242,13 @@ class EntryFormDialog:
     def _toggle_type_fields(self):
         entry_type = self._vars["entry_type"].get()
 
+        # Restore common amount fields to default visible/enabled state
+        self._amount_label.grid(row=self._amount_row, column=0, sticky=tk.W, padx=10, pady=5)
+        self._amount_entry.grid(row=self._amount_row, column=1, padx=10, pady=5, sticky=tk.W)
+        self._amount_entry.config(state="normal")
+        self._amount_billed_label.grid(row=self._amount_billed_row, column=0, sticky=tk.W, padx=10, pady=5)
+        self._amount_billed_entry.grid(row=self._amount_billed_row, column=1, padx=10, pady=5, sticky=tk.W)
+
         # Hide all type-specific
         self._kb_frame_label.grid_remove()
         self._kb_container.grid_remove()
@@ -249,7 +262,6 @@ class EntryFormDialog:
 
         # Show relevant
         if entry_type == EntryType.WKZ.value:
-            self._amount_entry.config(state="normal")
             for lbl, widget, r in self._wkz_widgets:
                 lbl.grid(row=r, column=0, sticky=tk.W, padx=10, pady=5)
                 widget.grid(row=r, column=1, padx=10, pady=5, sticky=tk.W)
@@ -257,7 +269,6 @@ class EntryFormDialog:
         elif entry_type == EntryType.KICKBACK.value:
             self._kb_frame_label.grid(row=self._kb_row, column=0, sticky=tk.NW, padx=10, pady=5)
             self._kb_container.grid(row=self._kb_row, column=1, padx=10, pady=5, sticky=tk.W)
-            # Make amount field read-only for kickback (auto-calculated)
             self._amount_entry.config(state="readonly")
             if not self._kickback_rows:
                 self._add_kickback_row()
@@ -266,13 +277,19 @@ class EntryFormDialog:
             self._ub_container.grid(row=self._ub_row, column=1, padx=10, pady=5, sticky=tk.W)
             self._ub_repeat_lbl.grid(row=self._ub_repeat_row, column=0, sticky=tk.W, padx=10, pady=5)
             self._ub_repeat_cb.grid(row=self._ub_repeat_row, column=1, padx=10, pady=5, sticky=tk.W)
-            self._amount_entry.config(state="normal")
+            # Betrag-Felder ausblenden — werden bei Umsatzbonus nicht benötigt
+            self._amount_label.grid_remove()
+            self._amount_entry.grid_remove()
+            self._amount_billed_label.grid_remove()
+            self._amount_billed_entry.grid_remove()
             if not self._ub_rows:
                 self._add_umsatzbonus_row()
             if not self.is_edit:
                 self._vars["jaehrlich_wiederholen"].set(True)
-        else:
-            self._amount_entry.config(state="normal")
+                from datetime import date as _date
+                year = _date.today().year
+                self._vars["date_start"].set(f"{year}-01-01")
+                self._vars["date_end"].set(f"{year}-12-31")
 
     def _populate(self):
         e = self.entry

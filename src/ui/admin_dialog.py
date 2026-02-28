@@ -1,8 +1,10 @@
 import hashlib
 import os
+import shutil
 import configparser
 import tkinter as tk
 from tkinter import ttk, messagebox, filedialog
+from datetime import datetime
 
 _PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 _CONFIG_PATH = os.path.join(_PROJECT_ROOT, "config.ini")
@@ -126,6 +128,7 @@ class AdminSettingsDialog:
         self._tab_fob_params(nb)
         self._tab_security(nb)
         self._tab_invoice_numbers(nb)
+        self._tab_backup(nb)
 
         btn_row = ttk.Frame(self.dialog)
         btn_row.pack(pady=(0, 10))
@@ -434,6 +437,60 @@ class AdminSettingsDialog:
         tu.configure(state="disabled")
 
         ttk.Button(dlg, text="Schließen", command=dlg.destroy).pack(pady=(0, 8))
+
+    # ── Tab: Backup ────────────────────────────────────────────────────
+
+    def _tab_backup(self, nb: ttk.Notebook):
+        f = ttk.Frame(nb, padding=16)
+        nb.add(f, text="Backup")
+
+        ttk.Label(f, text="Datensicherung",
+                  font=("Segoe UI", 10, "bold")).pack(anchor=tk.W, pady=(0, 6))
+        ttk.Label(
+            f,
+            text="Erstellt eine Sicherungskopie aller Datendateien im Ordner data/backups/.\n"
+                 "Gesichert werden: entries.xlsx, suppliers.xlsx, fob_kalkulation.xlsx, "
+                 "users.xlsx sowie local.db (falls vorhanden).",
+            wraplength=460,
+        ).pack(anchor=tk.W, pady=(0, 14))
+
+        self._backup_status = tk.StringVar(value="")
+        ttk.Label(f, textvariable=self._backup_status,
+                  foreground="gray", font=("Segoe UI", 9)).pack(anchor=tk.W, pady=(0, 8))
+
+        ttk.Button(f, text="Backup jetzt erstellen",
+                   command=self._run_backup).pack(anchor=tk.W)
+
+    def _run_backup(self):
+        from src.utils.constants import DATA_DIR
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        backup_dir = os.path.join(DATA_DIR, "backups")
+        os.makedirs(backup_dir, exist_ok=True)
+
+        backed_up = []
+        for filename in ("entries.xlsx", "suppliers.xlsx", "fob_kalkulation.xlsx",
+                         "users.xlsx", "local.db"):
+            src = os.path.join(DATA_DIR, filename)
+            if os.path.exists(src):
+                ext = os.path.splitext(filename)[1]
+                base = os.path.splitext(filename)[0]
+                dst = os.path.join(backup_dir, f"{base}_{timestamp}{ext}")
+                shutil.copy2(src, dst)
+                backed_up.append(filename)
+
+        if backed_up:
+            self._backup_status.set(
+                f"Zuletzt gesichert: {datetime.now().strftime('%d.%m.%Y %H:%M')} "
+                f"({len(backed_up)} Dateien)"
+            )
+            messagebox.showinfo(
+                "Backup erstellt",
+                f"Backup erfolgreich erstellt in:\n{backup_dir}\n\n"
+                f"Gesicherte Dateien:\n" + "\n".join(f"  • {f}" for f in backed_up),
+                parent=self.dialog,
+            )
+        else:
+            messagebox.showwarning("Backup", "Keine Datendateien gefunden.", parent=self.dialog)
 
     # ── PIN change ─────────────────────────────────────────────────────
 

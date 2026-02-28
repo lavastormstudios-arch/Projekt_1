@@ -1,8 +1,6 @@
 import tkinter as tk
 from tkinter import ttk, messagebox, filedialog
 import configparser
-import shutil
-from datetime import datetime
 import os
 
 from src.services.entry_service import EntryService
@@ -83,8 +81,6 @@ class MainWindow:
         file_menu.add_command(label="CSV Import", command=self._manual_csv_import,
                               state=import_state)
 
-        file_menu.add_separator()
-        file_menu.add_command(label="Backup erstellen", command=self._backup)
         file_menu.add_separator()
         file_menu.add_command(label="Beenden (Strg+Q)", command=self.root.quit)
         menubar.add_cascade(label="Datei", menu=file_menu)
@@ -225,17 +221,6 @@ class MainWindow:
         result = self.supplier_service.import_from_csv(csv_path)
         messagebox.showinfo("CSV Import", result)
         self.refresh_current_page()
-
-    def _backup(self):
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        backup_dir = os.path.join(DATA_DIR, "backups")
-        os.makedirs(backup_dir, exist_ok=True)
-        for filename in ("entries.xlsx", "suppliers.xlsx"):
-            src = os.path.join(DATA_DIR, filename)
-            if os.path.exists(src):
-                dst = os.path.join(backup_dir, f"{filename.replace('.xlsx', '')}_{timestamp}.xlsx")
-                shutil.copy2(src, dst)
-        messagebox.showinfo("Backup", f"Backup erstellt in:\n{backup_dir}")
 
     def _send_email_reminder(self):
         overdue, due_soon = self.reminder_service.check()

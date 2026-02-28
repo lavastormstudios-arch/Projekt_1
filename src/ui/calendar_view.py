@@ -121,6 +121,8 @@ class CalendarPage:
 
         for col in range(7):
             self.cal_frame.columnconfigure(col, weight=1)
+        for row_idx in range(len(cal) + 1):
+            self.cal_frame.rowconfigure(row_idx, weight=1, minsize=48)
 
     def _build_deadline_map(self):
         self._deadline_map = {}
