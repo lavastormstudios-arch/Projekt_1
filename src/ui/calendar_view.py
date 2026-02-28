@@ -140,7 +140,7 @@ class CalendarPage:
             ))
         if not entries:
             self.detail_tree.insert("", tk.END, values=(
-                "", "", f"Keine Einträge am {d.strftime('%d.%m.%Y')}", "", ""
+                "", "", f"Keine Einträge am {d.strftime('%d.%m.%y')}", "", ""
             ))
 
     def _prev_month(self):

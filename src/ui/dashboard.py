@@ -118,7 +118,7 @@ class DashboardPage:
         # Overdue table
         self.overdue_tree.delete(*self.overdue_tree.get_children())
         for e in overdue:
-            deadline = e.billing_deadline.strftime("%d.%m.%Y") if e.billing_deadline else ""
+            deadline = e.billing_deadline.strftime("%d.%m.%y") if e.billing_deadline else ""
             self.overdue_tree.insert("", tk.END, values=(
                 e.entry_type.value, e.supplier_name, e.description,
                 deadline, f"{e.amount:,.2f}€"
@@ -127,7 +127,7 @@ class DashboardPage:
         # Due soon table
         self.due_soon_tree.delete(*self.due_soon_tree.get_children())
         for e in due_soon:
-            deadline = e.billing_deadline.strftime("%d.%m.%Y") if e.billing_deadline else ""
+            deadline = e.billing_deadline.strftime("%d.%m.%y") if e.billing_deadline else ""
             days = e.days_until_deadline()
             self.due_soon_tree.insert("", tk.END, values=(
                 e.entry_type.value, e.supplier_name, e.description,

@@ -140,8 +140,8 @@ class EntryTablePage:
             entries.sort(key=key_fn, reverse=self._sort_reverse)
 
         for e in entries:
-            deadline = e.billing_deadline.strftime("%d.%m.%Y") if e.billing_deadline else ""
-            billed = e.date_billed.strftime("%d.%m.%Y") if e.date_billed else ""
+            deadline = e.billing_deadline.strftime("%d.%m.%y") if e.billing_deadline else ""
+            billed = e.date_billed.strftime("%d.%m.%y") if e.date_billed else ""
             tags = ()
             if e.status == EntryStatus.UEBERFAELLIG:
                 tags = ("overdue",)

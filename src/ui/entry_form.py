@@ -4,7 +4,7 @@ from typing import Optional
 
 from src.models.base_entry import Entry
 from src.models.enums import EntryType, EntryStatus
-from src.utils.date_helpers import parse_date, format_date
+from src.utils.date_helpers import parse_date, format_date, display_date, auto_format_date
 
 
 class EntryFormDialog:
@@ -95,13 +95,15 @@ class EntryFormDialog:
         row += 1
 
         # Dates (date_billed removed from UI — set automatically when invoicing)
-        for field, label in [("date_start", "Beginn (JJJJ-MM-TT):"),
-                             ("date_end", "Ende (JJJJ-MM-TT):"),
-                             ("billing_deadline", "Abrechnungsfrist (JJJJ-MM-TT):")]:
+        for field, label in [("date_start", "Beginn (TT.MM.JJ):"),
+                             ("date_end", "Ende (TT.MM.JJ):"),
+                             ("billing_deadline", "Abrechnungsfrist (TT.MM.JJ):")]:
             ttk.Label(f, text=label).grid(row=row, column=0, sticky=tk.W, padx=10, pady=5)
-            self._vars[field] = tk.StringVar()
-            ttk.Entry(f, textvariable=self._vars[field], width=15).grid(
-                row=row, column=1, padx=10, pady=5, sticky=tk.W)
+            var = tk.StringVar()
+            self._vars[field] = var
+            entry = ttk.Entry(f, textvariable=var, width=15)
+            entry.grid(row=row, column=1, padx=10, pady=5, sticky=tk.W)
+            entry.bind("<FocusOut>", lambda e, v=var: v.set(auto_format_date(v.get())))
             row += 1
 
         # Hidden: date_billed preserved on edit but not shown
@@ -288,8 +290,9 @@ class EntryFormDialog:
                 self._vars["jaehrlich_wiederholen"].set(True)
                 from datetime import date as _date
                 year = _date.today().year
-                self._vars["date_start"].set(f"{year}-01-01")
-                self._vars["date_end"].set(f"{year}-12-31")
+                year_short = str(year)[2:]
+                self._vars["date_start"].set(f"01.01.{year_short}")
+                self._vars["date_end"].set(f"31.12.{year_short}")
 
     def _populate(self):
         e = self.entry
@@ -299,9 +302,9 @@ class EntryFormDialog:
         self._vars["status"].set(e.status.value)
         self._vars["amount"].set(str(e.amount))
         self._vars["amount_billed"].set(str(e.amount_billed))
-        self._vars["date_start"].set(format_date(e.date_start))
-        self._vars["date_end"].set(format_date(e.date_end))
-        self._vars["billing_deadline"].set(format_date(e.billing_deadline))
+        self._vars["date_start"].set(display_date(e.date_start))
+        self._vars["date_end"].set(display_date(e.date_end))
+        self._vars["billing_deadline"].set(display_date(e.billing_deadline))
         self._vars["date_billed"].set(format_date(e.date_billed))
         self._vars["wkz_is_percentage"].set(e.wkz_is_percentage)
         self._vars["wkz_percentage"].set(str(e.wkz_percentage))

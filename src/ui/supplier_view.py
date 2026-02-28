@@ -883,7 +883,7 @@ class SupplierOverviewPage:
         self._entry_tree.delete(*self._entry_tree.get_children())
         total = 0.0
         for e in entries:
-            date_str = e.date_start.strftime("%d.%m.%Y") if e.date_start else "–"
+            date_str = e.date_start.strftime("%d.%m.%y") if e.date_start else "–"
             self._entry_tree.insert("", tk.END, iid=e.id, values=(
                 date_str,
                 e.entry_type.value,
