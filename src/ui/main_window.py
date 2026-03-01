@@ -100,9 +100,9 @@ class MainWindow:
         toolbar = ttk.Frame(self.root)
         toolbar.pack(fill=tk.X, padx=5, pady=(5, 0))
 
+        ttk.Button(toolbar, text="+ Neuer Eintrag", command=self._new_entry).pack(side=tk.LEFT, padx=2)
         ttk.Button(toolbar, text="Dashboard", command=lambda: self._show_page("dashboard")).pack(side=tk.LEFT, padx=2)
         ttk.Button(toolbar, text="Kalender", command=lambda: self._show_page("calendar")).pack(side=tk.LEFT, padx=2)
-        ttk.Button(toolbar, text="+ Neuer Eintrag", command=self._new_entry).pack(side=tk.LEFT, padx=2)
 
         if self._can("can_export"):
             ttk.Button(toolbar, text="Export", command=self._open_export).pack(side=tk.LEFT, padx=2)
@@ -121,12 +121,12 @@ class MainWindow:
         self.nav_list.pack(fill=tk.BOTH, expand=True)
 
         nav_items = [
+            ("suppliers", "Lieferanten"),
             ("all", "Alle Einträge"),
             ("wkz", "WKZ"),
             ("kickback", "Kickback"),
             ("umsatzbonus", "Umsatzbonus"),
             ("lagerwertausgleich", "Lagerwertausgleich"),
-            ("suppliers", "Lieferanten"),
         ]
         self._nav_keys = []
         for key, label in nav_items:
