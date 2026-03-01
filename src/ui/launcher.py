@@ -140,7 +140,7 @@ class LauncherWindow:
         try:
             from PIL import Image, ImageTk
             img = Image.open(_LOGO_PATH).convert("RGBA")
-            img = img.resize((32, 32), Image.LANCZOS)
+            img.thumbnail((32, 32), Image.LANCZOS)
             self._icon_photo = ImageTk.PhotoImage(img)
             self.root.iconphoto(True, self._icon_photo)
         except Exception:
