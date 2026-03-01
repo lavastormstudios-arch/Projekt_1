@@ -209,6 +209,13 @@ class LauncherWindow:
             "enabled": False,
             "command": None,
         })
+        modules.append({
+            "icon": "📺",
+            "title": "Retail Media",
+            "desc": "Retail Media\nVerwaltung",
+            "enabled": False,
+            "command": None,
+        })
         if p.can_view_lieferanten:
             modules.append({
                 "icon": "🤝",
