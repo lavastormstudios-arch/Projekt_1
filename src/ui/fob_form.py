@@ -223,6 +223,8 @@ class FobFormDialog:
         zollsatz = zollsatz_pct / 100.0
 
         entry_id = self._entry.id if self._entry else ""
+        # Preserve price_history when editing an existing entry
+        existing_history = self._entry.price_history if self._entry else ""
         return FobEntry(
             id=entry_id,
             artnr=gs("artnr"),
@@ -245,6 +247,7 @@ class FobFormDialog:
             zollsatz=zollsatz,
             sonder_toolingkosten=gf("sonder_toolingkosten"),
             archiv=gb("archiv"),
+            price_history=existing_history,
         )
 
     def _update_preview(self):

@@ -204,6 +204,7 @@ class ExcelStore:
                 zollsatz=safe_float(data.get("zollsatz")),
                 sonder_toolingkosten=safe_float(data.get("sonder_toolingkosten")),
                 archiv=bool(data.get("archiv", False)),
+                price_history=str(data.get("price_history", "") or ""),
             )
             entries.append(entry)
         wb.close()
@@ -220,6 +221,7 @@ class ExcelStore:
                 e.aktionspreis, e.ek_fob_dollar, e.ek_fob_rmb, e.ek_fob_euro,
                 e.produktionszeit, e.kubikmeter, e.lcl, e.container_20,
                 e.container_40hc, e.zollsatz, e.sonder_toolingkosten, e.archiv,
+                e.price_history,
             ])
         wb.save(FOB_KALKULATION_FILE)
 

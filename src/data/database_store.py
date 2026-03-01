@@ -33,10 +33,23 @@ class DatabaseStore:
     def __init__(self, url: str):
         self.engine = create_engine(url)
         Base.metadata.create_all(self.engine)
+        self._migrate_schema()
         self.Session = sessionmaker(bind=self.engine)
         self._seed_defaults_if_empty()
         from src.services.article_service import ArticleService
         ArticleService.load_from_config()
+
+    def _migrate_schema(self):
+        """Add columns that were introduced after initial table creation."""
+        from sqlalchemy import inspect, text
+        inspector = inspect(self.engine)
+        with self.engine.connect() as conn:
+            fob_cols = {c["name"] for c in inspector.get_columns("fob_entries")}
+            if "price_history" not in fob_cols:
+                conn.execute(text(
+                    "ALTER TABLE fob_entries ADD COLUMN price_history TEXT DEFAULT ''"
+                ))
+                conn.commit()
 
     def _seed_defaults_if_empty(self):
         with self.Session() as s:
@@ -314,6 +327,7 @@ class DatabaseStore:
             zollsatz=e.zollsatz,
             sonder_toolingkosten=e.sonder_toolingkosten,
             archiv=e.archiv,
+            price_history=e.price_history,
         )
 
     def _row_to_fob(self, r: FobEntryModel) -> FobEntry:
@@ -339,4 +353,5 @@ class DatabaseStore:
             zollsatz=safe_float(r.zollsatz),
             sonder_toolingkosten=safe_float(r.sonder_toolingkosten),
             archiv=bool(r.archiv),
+            price_history=r.price_history or "",
         )

@@ -69,6 +69,8 @@ class FobWindow:
                        command=self._new_entry).pack(side=tk.LEFT, padx=2)
             ttk.Button(toolbar, text="Bearbeiten",
                        command=self._edit_entry).pack(side=tk.LEFT, padx=2)
+            ttk.Button(toolbar, text="Neuer Preis",
+                       command=self._new_prices).pack(side=tk.LEFT, padx=2)
 
         if self.permissions and self.permissions.can_delete:
             ttk.Button(toolbar, text="Löschen",
@@ -98,6 +100,16 @@ class FobWindow:
         from src.ui.fob_form import FobFormDialog
         FobFormDialog(self.root, self.fob_service, entry=entry,
                       on_save=self._after_save)
+
+    def _new_prices(self):
+        entry = self._table.selected_entry()
+        if entry is None:
+            messagebox.showinfo("Hinweis", "Bitte zuerst einen Artikel auswählen.",
+                                parent=self.root)
+            return
+        from src.ui.fob_price_dialog import FobPriceDialog
+        FobPriceDialog(self.root, entry, self.fob_service,
+                       on_save=self._after_save)
 
     def _delete_entry(self):
         entry = self._table.selected_entry()

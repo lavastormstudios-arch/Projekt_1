@@ -12,7 +12,7 @@ FOB_COLUMNS = [
     "aktuelle_ztn", "aktueller_ek", "geplanter_uvp", "aktionspreis",
     "ek_fob_dollar", "ek_fob_rmb", "ek_fob_euro", "produktionszeit", "kubikmeter",
     "lcl", "container_20", "container_40hc", "zollsatz",
-    "sonder_toolingkosten", "archiv",
+    "sonder_toolingkosten", "archiv", "price_history",
 ]
 ACTION_PERMISSIONS = ["can_edit", "can_delete", "can_invoice", "can_export", "can_import", "is_admin"]
 ENTRIES_FILE = os.path.join(DATA_DIR, "entries.xlsx")

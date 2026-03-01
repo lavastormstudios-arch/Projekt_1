@@ -1,3 +1,4 @@
+import json
 from dataclasses import dataclass, field
 
 
@@ -24,3 +25,10 @@ class FobEntry:
     zollsatz: float = 0.0
     sonder_toolingkosten: float = 0.0
     archiv: bool = False
+    price_history: str = ""
+
+    def get_price_history(self) -> list:
+        return json.loads(self.price_history) if self.price_history else []
+
+    def set_price_history(self, history: list):
+        self.price_history = json.dumps(history, ensure_ascii=False)

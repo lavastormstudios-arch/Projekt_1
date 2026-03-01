@@ -1,6 +1,7 @@
 import configparser
 import os
 import uuid
+from datetime import date
 from typing import List, Optional
 
 from src.models.fob_entry import FobEntry
@@ -181,6 +182,27 @@ class FobService:
 
     def delete(self, entry_id: str):
         self._store.delete_fob_entry(entry_id)
+
+    def update_prices(self, entry_id: str, new_prices: dict, notiz: str = "") -> FobEntry:
+        """Snapshot current prices into history, then apply new_prices."""
+        entry = self.get_by_id(entry_id)
+        calc = self.calculate(entry)
+        snapshot = {
+            "date": date.today().isoformat(),
+            "ek_fob_dollar": entry.ek_fob_dollar,
+            "ek_fob_rmb":    entry.ek_fob_rmb,
+            "ek_fob_euro":   entry.ek_fob_euro,
+            "neuer_ek":      calc["neuer_ek"],
+            "notiz":         notiz,
+        }
+        history = entry.get_price_history()
+        history.insert(0, snapshot)
+        entry.set_price_history(history)
+        for field in ("ek_fob_dollar", "ek_fob_rmb", "ek_fob_euro"):
+            if field in new_prices:
+                setattr(entry, field, float(new_prices[field] or 0))
+        self.update(entry)
+        return entry
 
     # ------------------------------------------------------------------
     # SAP Import

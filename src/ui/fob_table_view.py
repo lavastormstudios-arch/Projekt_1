@@ -25,10 +25,11 @@ _COLOR_ARCHIV = "#EFEFEF"
 
 
 class FobTableView(ttk.Frame):
-    def __init__(self, parent, fob_service, permissions=None):
+    def __init__(self, parent, fob_service, permissions=None, on_save=None):
         super().__init__(parent)
         self._svc = fob_service
         self._permissions = permissions
+        self._on_save = on_save
         self._show_archiv = False
         self._rows: list = []      # list of (entry, calc_dict)
         self._build()
@@ -68,6 +69,12 @@ class FobTableView(ttk.Frame):
 
         self._sort_col = None
         self._sort_asc = True
+
+        # Right-click context menu
+        self._ctx_menu = tk.Menu(self, tearoff=0)
+        self._ctx_menu.add_command(label="Neuer Preis erfassen",
+                                   command=self._open_price_dialog)
+        self.tree.bind("<Button-3>", self._show_context_menu)
 
     # ------------------------------------------------------------------
     # Refresh
@@ -187,6 +194,40 @@ class FobTableView(ttk.Frame):
     def set_show_archiv(self, show: bool):
         self._show_archiv = show
         self.refresh()
+
+    # ------------------------------------------------------------------
+    # Context menu / price dialog
+    # ------------------------------------------------------------------
+
+    def _show_context_menu(self, event):
+        row = self.tree.identify_row(event.y)
+        if row:
+            self.tree.selection_set(row)
+            self._ctx_menu.tk_popup(event.x_root, event.y_root)
+
+    def _open_price_dialog(self):
+        entry = self.selected_entry()
+        if entry is None:
+            return
+        from src.ui.fob_price_dialog import FobPriceDialog
+        FobPriceDialog(
+            self.winfo_toplevel(),
+            entry,
+            self._svc,
+            on_save=self._after_price_update,
+        )
+
+    def _after_price_update(self):
+        self.refresh()
+        if self._on_save:
+            self._on_save()
+        # Propagate to parent window's status bar if available
+        try:
+            toplevel = self.winfo_toplevel()
+            if hasattr(toplevel, "_refresh_status"):
+                toplevel._refresh_status()
+        except Exception:
+            pass
 
     # ------------------------------------------------------------------
     # Status summary

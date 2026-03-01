@@ -69,6 +69,7 @@ class FobEntryModel(Base):
     zollsatz = Column(Float, default=0.0)
     sonder_toolingkosten = Column(Float, default=0.0)
     archiv = Column(Boolean, default=False)
+    price_history = Column(Text, default="")
 
 
 class UserModel(Base):
