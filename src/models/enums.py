@@ -5,6 +5,7 @@ class EntryType(str, Enum):
     WKZ = "WKZ"
     KICKBACK = "Kickback"
     UMSATZBONUS = "Umsatzbonus"
+    LAGERWERTAUSGLEICH = "Lagerwertausgleich"
 
 
 class EntryStatus(str, Enum):

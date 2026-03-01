@@ -169,7 +169,7 @@ class InvoiceService:
             ctx["base_amount"] = f"{override_purchase_volume:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
             ctx["percentage"] = f"{entry.wkz_percentage:.2f}"
             ctx["line_description"] = f"WKZ {entry.wkz_percentage:.2f}% auf Einkaufsumsatz"
-        elif entry.entry_type == EntryType.KICKBACK:
+        elif entry.entry_type in (EntryType.KICKBACK, EntryType.LAGERWERTAUSGLEICH):
             articles = entry.get_kickback_articles()
             items = []
             net = 0.0
@@ -231,6 +231,10 @@ class InvoiceService:
         # ── Storno / normal prefix & reference ───────────────────────────
         if entry.entry_type == EntryType.KICKBACK:
             ctx["BELAST_PREFIX"] = "Storno Rechnung-Kickback-Vergütung" if is_storno else "Rechnung-Kickback-Vergütung"
+            ctx["ARTBON"] = ""
+            ctx["is_wkz_type"] = True
+        elif entry.entry_type == EntryType.LAGERWERTAUSGLEICH:
+            ctx["BELAST_PREFIX"] = "Storno Rechnung-Lagerwertausgleich" if is_storno else "Rechnung-Lagerwertausgleich"
             ctx["ARTBON"] = ""
             ctx["is_wkz_type"] = True
         elif entry.entry_type == EntryType.WKZ:

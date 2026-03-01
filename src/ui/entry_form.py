@@ -261,7 +261,7 @@ class EntryFormDialog:
                 lbl.grid(row=r, column=0, sticky=tk.W, padx=10, pady=5)
                 widget.grid(row=r, column=1, padx=10, pady=5, sticky=tk.W)
             self._toggle_wkz_percentage()
-        elif entry_type == EntryType.KICKBACK.value:
+        elif entry_type in (EntryType.KICKBACK.value, EntryType.LAGERWERTAUSGLEICH.value):
             self._kb_frame_label.grid(row=self._kb_row, column=0, sticky=tk.NW, padx=10, pady=5)
             self._kb_container.grid(row=self._kb_row, column=1, padx=10, pady=5, sticky=tk.W)
             self._amount_entry.config(state="readonly")
@@ -304,7 +304,7 @@ class EntryFormDialog:
         self.notes_text.insert("1.0", e.notes)
 
         # Populate kickback articles
-        if e.entry_type == EntryType.KICKBACK:
+        if e.entry_type in (EntryType.KICKBACK, EntryType.LAGERWERTAUSGLEICH):
             articles = e.get_kickback_articles()
             for art in articles:
                 self._add_kickback_row(
@@ -355,7 +355,7 @@ class EntryFormDialog:
         kickback_articles = []
         umsatzbonus_staffeln = []
 
-        if entry_type == EntryType.KICKBACK:
+        if entry_type in (EntryType.KICKBACK, EntryType.LAGERWERTAUSGLEICH):
             total_kickback = 0.0
             for row_frame, art_var, amt_var in self._kickback_rows:
                 if not row_frame.winfo_exists():

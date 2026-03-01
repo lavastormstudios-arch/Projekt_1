@@ -128,6 +128,7 @@ class MainWindow:
             ("wkz", "WKZ"),
             ("kickback", "Kickback"),
             ("umsatzbonus", "Umsatzbonus"),
+            ("lagerwertausgleich", "Lagerwertausgleich"),
             ("suppliers", "Lieferanten"),
         ]
         self._nav_keys = []
@@ -161,6 +162,7 @@ class MainWindow:
         self.pages["wkz"] = EntryTablePage(self.content_frame, self, filter_type="WKZ")
         self.pages["kickback"] = EntryTablePage(self.content_frame, self, filter_type="Kickback")
         self.pages["umsatzbonus"] = EntryTablePage(self.content_frame, self, filter_type="Umsatzbonus")
+        self.pages["lagerwertausgleich"] = EntryTablePage(self.content_frame, self, filter_type="Lagerwertausgleich")
         self.pages["suppliers"] = SupplierOverviewPage(self.content_frame, self)
 
     def _show_page(self, page_key: str):

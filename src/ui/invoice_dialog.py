@@ -36,7 +36,7 @@ class InvoiceDialog:
 
         et = self.entry.entry_type
 
-        if et == EntryType.KICKBACK:
+        if et in (EntryType.KICKBACK, EntryType.LAGERWERTAUSGLEICH):
             self._build_kickback(outer)
         elif et == EntryType.UMSATZBONUS:
             self._build_umsatzbonus(outer)
@@ -80,7 +80,9 @@ class InvoiceDialog:
                        f"{net:,.2f} €".replace(",", "X").replace(".", ",").replace("X", "."), 3)
 
     def _build_kickback(self, parent):
-        ttk.Label(parent, text="Kickback – Mengen eingeben", font=("Segoe UI", 12, "bold")).pack(anchor=tk.W, pady=(0, 8))
+        et = self.entry.entry_type
+        title = "Lagerwertausgleich – Mengen eingeben" if et == EntryType.LAGERWERTAUSGLEICH else "Kickback – Mengen eingeben"
+        ttk.Label(parent, text=title, font=("Segoe UI", 12, "bold")).pack(anchor=tk.W, pady=(0, 8))
 
         articles = self.entry.get_kickback_articles()
 
@@ -200,7 +202,7 @@ class InvoiceDialog:
         qty_map = None
         achieved_revenue = None
 
-        if et == EntryType.KICKBACK:
+        if et in (EntryType.KICKBACK, EntryType.LAGERWERTAUSGLEICH):
             qty_map = {}
             for art_nr, var in self._qty_vars.items():
                 try:
@@ -366,7 +368,7 @@ class BulkInvoiceDialog:
 
         # Entry-type-specific content
         et = entry.entry_type
-        if et == EntryType.KICKBACK:
+        if et in (EntryType.KICKBACK, EntryType.LAGERWERTAUSGLEICH):
             self._card_kickback(card, entry, row_data)
         elif et == EntryType.UMSATZBONUS:
             self._card_umsatzbonus(card, entry, row_data)
@@ -438,7 +440,7 @@ class BulkInvoiceDialog:
             achieved_revenue = None
 
             try:
-                if entry.entry_type == EntryType.KICKBACK:
+                if entry.entry_type in (EntryType.KICKBACK, EntryType.LAGERWERTAUSGLEICH):
                     qty_map = {}
                     for art_nr, var in row_data.get("qty_vars", {}).items():
                         try:
@@ -660,7 +662,7 @@ class AdjustInvoiceDialog:
             ttk.Label(new_frame, textvariable=self._new_net_var).grid(
                 row=1, column=1, sticky=tk.W, pady=4)
 
-        elif et == EntryType.KICKBACK:
+        elif et in (EntryType.KICKBACK, EntryType.LAGERWERTAUSGLEICH):
             ttk.Label(new_frame, text="Mengen eingeben:",
                       font=("Segoe UI", 9, "bold")).pack(anchor=tk.W, pady=(0, 4))
             articles = self.entry.get_kickback_articles()
@@ -746,7 +748,7 @@ class AdjustInvoiceDialog:
             except ValueError:
                 messagebox.showwarning("Eingabefehler", "Bitte ein gültiges Einkaufsvolumen eingeben.", parent=self.dialog)
                 return
-        elif et == EntryType.KICKBACK:
+        elif et in (EntryType.KICKBACK, EntryType.LAGERWERTAUSGLEICH):
             qty_map = {}
             for art_nr, var in self._qty_vars.items():
                 try:
