@@ -13,8 +13,6 @@ _COLUMNS = [
     ("fracht",        "Fracht €",     75),
     ("zoll",          "Zoll €",       65),
     ("neuer_ek",      "NEUER EK €",   90),
-    ("marge_uvp",     "Marge UVP",    80),
-    ("marge_aktion",  "Marge Aktion", 90),
 ]
 
 _COLOR_RED    = "#FFD0D0"
@@ -31,7 +29,9 @@ class FobTableView(ttk.Frame):
         self._permissions = permissions
         self._on_save = on_save
         self._show_archiv = False
-        self._rows: list = []      # list of (entry, calc_dict)
+        self._all_rows: list = []      # full dataset (loaded + calculated)
+        self._rows: list = []          # filtered view
+        self._active_filter: dict = {} # {text, cm, lieferant, warengruppe}
         self._build()
 
     # ------------------------------------------------------------------
@@ -81,14 +81,50 @@ class FobTableView(ttk.Frame):
     # ------------------------------------------------------------------
 
     def refresh(self):
-        self.tree.delete(*self.tree.get_children())
-        self._rows = []
-
+        self._all_rows = []
         entries = self._svc.load_all(include_archiv=self._show_archiv)
         for entry in entries:
             calc = self._svc.calculate(entry)
-            self._rows.append((entry, calc))
+            self._all_rows.append((entry, calc))
+        self._apply_filter()
+
+    def apply_filter(self, text="", cm="", lieferant="", warengruppe=""):
+        self._active_filter = {
+            "text": text,
+            "cm": cm,
+            "lieferant": lieferant,
+            "warengruppe": warengruppe,
+        }
+        self._apply_filter()
+
+    def _apply_filter(self):
+        f = self._active_filter
+        text = f.get("text", "").lower()
+        cm   = f.get("cm", "")
+        lief = f.get("lieferant", "")
+        wgr  = f.get("warengruppe", "")
+
+        self._rows = [
+            (e, c) for e, c in self._all_rows
+            if (not text or text in (e.artnr or "").lower() or text in (e.bezeichnung or "").lower())
+            and (not cm   or e.cm == cm)
+            and (not lief or e.lieferant == lief)
+            and (not wgr  or e.warengruppe == wgr)
+        ]
+        self.tree.delete(*self.tree.get_children())
+        for entry, calc in self._rows:
             self._insert_row(entry, calc)
+
+    def get_distinct_values(self, field: str) -> list:
+        """Return sorted unique non-empty values for *field* from the full dataset."""
+        seen = set()
+        result = []
+        for entry, _ in self._all_rows:
+            v = getattr(entry, field, "") or ""
+            if v and v not in seen:
+                seen.add(v)
+                result.append(v)
+        return sorted(result)
 
     def _insert_row(self, entry, calc):
         def fmt(v, decimals=2):
@@ -114,24 +150,12 @@ class FobTableView(ttk.Frame):
             fmt(calc["frachtkosten"]),
             fmt(calc["zollkosten"]),
             fmt(calc["neuer_ek"]),
-            fmt_pct(calc["marge_uvp"]) if entry.geplanter_uvp else "",
-            fmt_pct(calc["marge_aktion"]) if entry.aktionspreis else "",
         )
 
-        # Color tag based on marge_uvp
         if entry.archiv:
             tag = "archiv"
         else:
-            m = calc.get("marge_uvp", 0)
-            if entry.geplanter_uvp:
-                if m < 0.10:
-                    tag = "red"
-                elif m < 0.20:
-                    tag = "orange"
-                else:
-                    tag = "green"
-            else:
-                tag = ""
+            tag = ""
 
         self.tree.insert("", tk.END, iid=entry.id, values=values,
                          tags=(tag,) if tag else ())
@@ -174,18 +198,14 @@ class FobTableView(ttk.Frame):
                 "fracht":       calc["frachtkosten"],
                 "zoll":         calc["zollkosten"],
                 "neuer_ek":     calc["neuer_ek"],
-                "marge_uvp":    calc["marge_uvp"],
-                "marge_aktion": calc["marge_aktion"],
             }
             v = _map.get(col_id, "")
             if isinstance(v, str):
                 return v.lower()
             return v if v is not None else 0
 
-        self._rows.sort(key=sort_key, reverse=not self._sort_asc)
-        self.tree.delete(*self.tree.get_children())
-        for entry, calc in self._rows:
-            self._insert_row(entry, calc)
+        self._all_rows.sort(key=sort_key, reverse=not self._sort_asc)
+        self._apply_filter()
 
     # ------------------------------------------------------------------
     # Archiv toggle

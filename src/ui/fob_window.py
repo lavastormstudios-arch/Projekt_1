@@ -31,6 +31,7 @@ class FobWindow:
         self.fob_service = FobService(self.store)
 
         self._build_toolbar()
+        self._build_filter_bar()
 
         # Status bar
         self._status_var = tk.StringVar(value="")
@@ -46,6 +47,7 @@ class FobWindow:
         self._table = FobTableView(content, self.fob_service, permissions=self.permissions)
         self._table.pack(fill=tk.BOTH, expand=True)
         self._table.refresh()
+        self._update_filter_dropdowns()
         self._refresh_status()
 
     # ------------------------------------------------------------------
@@ -81,6 +83,73 @@ class FobWindow:
         ttk.Checkbutton(toolbar, text="Archiv anzeigen",
                         variable=self._show_archiv_var,
                         command=self._toggle_archiv).pack(side=tk.RIGHT, padx=6)
+
+    def _build_filter_bar(self):
+        bar = ttk.Frame(self.root)
+        bar.pack(fill=tk.X, padx=5, pady=(2, 0))
+
+        ttk.Label(bar, text="Suche:").pack(side=tk.LEFT, padx=(0, 2))
+        self._filter_text_var = tk.StringVar()
+        ttk.Entry(bar, textvariable=self._filter_text_var, width=20).pack(
+            side=tk.LEFT, padx=(0, 10))
+        self._filter_text_var.trace_add("write", self._on_filter_change)
+
+        ttk.Label(bar, text="CM:").pack(side=tk.LEFT, padx=(0, 2))
+        self._filter_cm_var = tk.StringVar(value="Alle")
+        self._cm_combo = ttk.Combobox(bar, textvariable=self._filter_cm_var,
+                                      state="readonly", width=12)
+        self._cm_combo.pack(side=tk.LEFT, padx=(0, 10))
+        self._cm_combo.bind("<<ComboboxSelected>>", self._on_filter_change)
+
+        ttk.Label(bar, text="Lieferant:").pack(side=tk.LEFT, padx=(0, 2))
+        self._filter_lief_var = tk.StringVar(value="Alle")
+        self._lief_combo = ttk.Combobox(bar, textvariable=self._filter_lief_var,
+                                        state="readonly", width=16)
+        self._lief_combo.pack(side=tk.LEFT, padx=(0, 10))
+        self._lief_combo.bind("<<ComboboxSelected>>", self._on_filter_change)
+
+        ttk.Label(bar, text="Warengruppe:").pack(side=tk.LEFT, padx=(0, 2))
+        self._filter_wgr_var = tk.StringVar(value="Alle")
+        self._wgr_combo = ttk.Combobox(bar, textvariable=self._filter_wgr_var,
+                                       state="readonly", width=14)
+        self._wgr_combo.pack(side=tk.LEFT, padx=(0, 10))
+        self._wgr_combo.bind("<<ComboboxSelected>>", self._on_filter_change)
+
+        ttk.Button(bar, text="✕ Zurücksetzen",
+                   command=self._reset_filter).pack(side=tk.LEFT)
+
+    # ------------------------------------------------------------------
+    # Filter helpers
+    # ------------------------------------------------------------------
+
+    def _on_filter_change(self, *_):
+        if not hasattr(self, "_table"):
+            return
+        self._table.apply_filter(
+            text=self._filter_text_var.get().strip(),
+            cm=self._filter_cm_var.get() if self._filter_cm_var.get() != "Alle" else "",
+            lieferant=self._filter_lief_var.get() if self._filter_lief_var.get() != "Alle" else "",
+            warengruppe=self._filter_wgr_var.get() if self._filter_wgr_var.get() != "Alle" else "",
+        )
+        self._refresh_status()
+
+    def _reset_filter(self):
+        self._filter_text_var.set("")
+        self._filter_cm_var.set("Alle")
+        self._filter_lief_var.set("Alle")
+        self._filter_wgr_var.set("Alle")
+        self._on_filter_change()
+
+    def _update_filter_dropdowns(self):
+        for field, combo, var in [
+            ("cm",          self._cm_combo,   self._filter_cm_var),
+            ("lieferant",   self._lief_combo, self._filter_lief_var),
+            ("warengruppe", self._wgr_combo,  self._filter_wgr_var),
+        ]:
+            values = ["Alle"] + self._table.get_distinct_values(field)
+            combo["values"] = values
+            if var.get() not in values:
+                var.set("Alle")
 
     # ------------------------------------------------------------------
     # Actions
@@ -128,10 +197,12 @@ class FobWindow:
 
     def _toggle_archiv(self):
         self._table.set_show_archiv(self._show_archiv_var.get())
+        self._update_filter_dropdowns()
         self._refresh_status()
 
     def _after_save(self):
         self._table.refresh()
+        self._update_filter_dropdowns()
         self._refresh_status()
 
     def _refresh_status(self):
