@@ -100,11 +100,10 @@ class MainWindow:
         toolbar = ttk.Frame(self.root)
         toolbar.pack(fill=tk.X, padx=5, pady=(5, 0))
 
+        ttk.Button(toolbar, text="Dashboard", command=lambda: self._show_page("dashboard")).pack(side=tk.LEFT, padx=2)
+        ttk.Button(toolbar, text="Kalender", command=lambda: self._show_page("calendar")).pack(side=tk.LEFT, padx=2)
         ttk.Button(toolbar, text="+ Neuer Eintrag", command=self._new_entry).pack(side=tk.LEFT, padx=2)
-        ttk.Button(toolbar, text="Lieferanten", command=lambda: self._show_page("suppliers")).pack(side=tk.LEFT, padx=2)
 
-        if self._can("can_import"):
-            ttk.Button(toolbar, text="CSV Import", command=self._manual_csv_import).pack(side=tk.LEFT, padx=2)
         if self._can("can_export"):
             ttk.Button(toolbar, text="Export", command=self._open_export).pack(side=tk.LEFT, padx=2)
 
@@ -122,8 +121,6 @@ class MainWindow:
         self.nav_list.pack(fill=tk.BOTH, expand=True)
 
         nav_items = [
-            ("dashboard", "Dashboard"),
-            ("calendar", "Kalender"),
             ("all", "Alle Einträge"),
             ("wkz", "WKZ"),
             ("kickback", "Kickback"),
@@ -175,6 +172,8 @@ class MainWindow:
             idx = self._nav_keys.index(page_key)
             self.nav_list.selection_clear(0, tk.END)
             self.nav_list.selection_set(idx)
+        else:
+            self.nav_list.selection_clear(0, tk.END)
 
     def _on_nav_select(self, event):
         sel = self.nav_list.curselection()
