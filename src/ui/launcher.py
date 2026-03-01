@@ -19,7 +19,7 @@ class LauncherWindow:
 
     def __init__(self):
         self.root = tk.Tk()
-        self.root.title("Werkzeuge")
+        self.root.title("Management Tool")
         self.root.resizable(False, False)
         self.root.configure(bg=self.BG)
 
@@ -131,9 +131,20 @@ class LauncherWindow:
     # ------------------------------------------------------------------
 
     def _build_ui(self):
+        self._set_window_icon()
         self._build_header()
         self._build_cards()
         self._build_footer()
+
+    def _set_window_icon(self):
+        try:
+            from PIL import Image, ImageTk
+            img = Image.open(_LOGO_PATH).convert("RGBA")
+            img = img.resize((32, 32), Image.LANCZOS)
+            self._icon_photo = ImageTk.PhotoImage(img)
+            self.root.iconphoto(True, self._icon_photo)
+        except Exception:
+            pass
 
     def _build_header(self):
         header = tk.Frame(self.root, bg=self.HEADER_BG, height=110)
