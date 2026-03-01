@@ -1,5 +1,5 @@
 import tkinter as tk
-from tkinter import ttk, messagebox, filedialog
+from tkinter import ttk, messagebox
 import configparser
 import os
 
@@ -76,10 +76,6 @@ class MainWindow:
         export_state = tk.NORMAL if self._can("can_export") else tk.DISABLED
         file_menu.add_command(label="Export (Strg+E)", command=self._open_export,
                               state=export_state)
-
-        import_state = tk.NORMAL if self._can("can_import") else tk.DISABLED
-        file_menu.add_command(label="CSV Import", command=self._manual_csv_import,
-                              state=import_state)
 
         file_menu.add_separator()
         file_menu.add_command(label="Beenden (Strg+Q)", command=self.root.quit)
@@ -194,34 +190,65 @@ class MainWindow:
         SettingsDialog(self.root, self)
 
     def _auto_import_csv(self):
+        """Import the latest daily CSV from the configured network share.
+
+        Looks for files matching ``{server_path}/{filename_prefix}<date>.csv``
+        where <date> follows ``date_format`` (default ``%Y-%m-%d``).
+        The import runs at most once per file date – the date of the last
+        successful import is persisted in config.ini as ``last_import_date``.
+        """
         if not self._can("can_import"):
             return
         try:
+            import glob as _glob
+            import datetime
+
             config = configparser.ConfigParser()
             config.read(self.config_path, encoding="utf-8")
-            csv_path = config.get("Import", "csv_path", fallback="").strip()
-            if csv_path and os.path.exists(csv_path):
-                result = self.supplier_service.import_from_csv(csv_path)
-                self.statusbar.config(text=result)
-        except Exception:
-            pass
 
-    def _manual_csv_import(self):
-        config = configparser.ConfigParser()
-        config.read(self.config_path, encoding="utf-8")
-        csv_path = config.get("Import", "csv_path", fallback="").strip()
+            server_path     = config.get("Import", "server_path",     fallback="").strip()
+            prefix          = config.get("Import", "filename_prefix", fallback="").strip()
+            date_fmt        = config.get("Import", "date_format",     fallback="%Y-%m-%d").strip()
+            last_import     = config.get("Import", "last_import_date",fallback="").strip()
 
-        if not csv_path or not os.path.exists(csv_path):
-            csv_path = filedialog.askopenfilename(
-                title="CSV-Datei auswählen",
-                filetypes=[("CSV-Dateien", "*.csv"), ("Alle Dateien", "*.*")]
-            )
-            if not csv_path:
+            if not server_path:
                 return
 
-        result = self.supplier_service.import_from_csv(csv_path)
-        messagebox.showinfo("CSV Import", result)
-        self.refresh_current_page()
+            # Find all matching files and parse dates from their names
+            pattern = os.path.join(server_path, f"{prefix}*.csv")
+            candidates = []
+            for filepath in _glob.glob(pattern):
+                stem = os.path.splitext(os.path.basename(filepath))[0]
+                date_str = stem[len(prefix):]
+                try:
+                    file_date = datetime.datetime.strptime(date_str, date_fmt).date()
+                    candidates.append((file_date, filepath))
+                except ValueError:
+                    continue
+
+            if not candidates:
+                return
+
+            candidates.sort(reverse=True)
+            latest_date, latest_file = candidates[0]
+            latest_date_str = latest_date.isoformat()
+
+            if latest_date_str == last_import:
+                return  # already imported this file
+
+            result = self.supplier_service.import_from_csv(latest_file)
+
+            # Persist the imported date so we don't re-import on the next start
+            if not config.has_section("Import"):
+                config.add_section("Import")
+            config.set("Import", "last_import_date", latest_date_str)
+            with open(self.config_path, "w", encoding="utf-8") as fh:
+                config.write(fh)
+
+            self.statusbar.config(text=f"Auto-Import {latest_date_str}: {result}")
+            self.refresh_current_page()
+        except Exception:
+            pass
 
     def _send_email_reminder(self):
         overdue, due_soon = self.reminder_service.check()
