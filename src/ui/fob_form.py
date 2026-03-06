@@ -23,9 +23,17 @@ class FobFormDialog:
         self.dialog.geometry(f"{w}x{h}+{x}+{y}")
 
         self._vars: dict[str, tk.Variable] = {}
+        self._master_data_widgets: dict[str, ttk.Entry] = {}
         self._build()
-        if entry:
+
+        if entry is None:
+            from src.utils.constants import DUMMY_ARTNR
+            self._vars["artnr"].set(DUMMY_ARTNR)
+            self._lookup_article()
+        else:
             self._populate(entry)
+            self.dialog.after(10, self._lookup_article)
+
         self._update_preview()
 
     # ------------------------------------------------------------------
@@ -58,12 +66,14 @@ class FobFormDialog:
         ttk.Button(btn_row, text="Abbrechen", command=self.dialog.destroy, width=12).pack(side=tk.LEFT, padx=4)
 
     def _add_field(self, parent, row, label, key, var_type="str", width=22, show_pct=False):
+        """Add a form field and return the created widget (Entry or Checkbutton)."""
         ttk.Label(parent, text=label).grid(row=row, column=0, sticky=tk.W, pady=3)
         if var_type == "bool":
             v = tk.BooleanVar()
             self._vars[key] = v
             cb = ttk.Checkbutton(parent, variable=v, command=self._update_preview)
             cb.grid(row=row, column=1, sticky=tk.W, padx=8)
+            return cb
         else:
             v = tk.StringVar()
             self._vars[key] = v
@@ -72,51 +82,56 @@ class FobFormDialog:
             v.trace_add("write", lambda *_: self._update_preview())
             if show_pct:
                 ttk.Label(parent, text="%").grid(row=row, column=2, sticky=tk.W)
+            return e
 
     def _tab_artikel(self, nb):
         f = ttk.Frame(nb, padding=14)
         nb.add(f, text="Artikel-Info")
 
-        # Artnr: special handling with lookup trigger
+        # Artnr: Combobox with autocomplete
         ttk.Label(f, text="Artnr *").grid(row=0, column=0, sticky=tk.W, pady=3)
         artnr_var = tk.StringVar()
         self._vars["artnr"] = artnr_var
-        artnr_entry = ttk.Entry(f, textvariable=artnr_var, width=32)
-        artnr_entry.grid(row=0, column=1, sticky=tk.W, padx=8, pady=3)
+        self._artnr_combo = ttk.Combobox(f, textvariable=artnr_var, width=30, state="normal")
+        self._artnr_combo.grid(row=0, column=1, sticky=tk.W, padx=8, pady=3)
         artnr_var.trace_add("write", lambda *_: self._update_preview())
-        artnr_entry.bind("<FocusOut>", lambda _e: self._lookup_article())
-        artnr_entry.bind("<Return>", lambda _e: self._lookup_article())
+        self._artnr_combo.bind("<KeyRelease>", self._artnr_keyrelease)
+        self._artnr_combo.bind("<FocusOut>", lambda _e: self._lookup_article())
+        self._artnr_combo.bind("<Return>", lambda _e: self._lookup_article())
+        self._artnr_combo.bind("<<ComboboxSelected>>", lambda _e: self._lookup_article())
 
         self._lookup_status = tk.StringVar(value="")
-        ttk.Label(f, textvariable=self._lookup_status,
-                  font=("Segoe UI", 8), foreground="#2B7A0B").grid(
-            row=0, column=2, sticky=tk.W, padx=4)
+        self._lookup_status_label = ttk.Label(f, textvariable=self._lookup_status,
+                                              font=("Segoe UI", 8), foreground="#2B7A0B")
+        self._lookup_status_label.grid(row=0, column=2, sticky=tk.W, padx=4)
 
-        # Remaining fields
-        fields = [
+        # Master data fields (will be locked when a real article is found)
+        master_fields = [
             ("Bezeichnung *",   "bezeichnung"),
             ("Lieferant *",     "lieferant"),
             ("Warengruppe",     "warengruppe"),
             ("CM",              "cm"),
             ("Aktuelle ZTN",    "aktuelle_ztn"),
         ]
-        for i, (lbl, key) in enumerate(fields, start=1):
-            self._add_field(f, i, lbl, key, width=32)
-        self._add_field(f, len(fields) + 1, "Archiv", "archiv", var_type="bool")
+        for i, (lbl, key) in enumerate(master_fields, start=1):
+            widget = self._add_field(f, i, lbl, key, width=32)
+            self._master_data_widgets[key] = widget
+
+        self._add_field(f, len(master_fields) + 1, "Archiv", "archiv", var_type="bool")
 
     def _tab_preise(self, nb):
         f = ttk.Frame(nb, padding=14)
         nb.add(f, text="Preise")
         fields = [
             ("Aktueller EK (€)",      "aktueller_ek"),
-            ("Geplanter UVP inkl. MwSt. (€)", "geplanter_uvp"),
-            ("Aktionspreis inkl. MwSt. (€)",  "aktionspreis"),
             ("EK FOB Dollar ($)",     "ek_fob_dollar"),
             ("EK FOB RMB (¥)",        "ek_fob_rmb"),
             ("EK FOB Euro (€)",       "ek_fob_euro"),
         ]
         for row, (lbl, key) in enumerate(fields):
-            self._add_field(f, row, lbl, key)
+            widget = self._add_field(f, row, lbl, key)
+            if key == "aktueller_ek":
+                self._master_data_widgets[key] = widget
 
         # Mutual exclusivity: only one FOB price field may be filled
         _fob_fields = ("ek_fob_dollar", "ek_fob_rmb", "ek_fob_euro")
@@ -180,8 +195,6 @@ class FobFormDialog:
         sv("aktuelle_ztn", e.aktuelle_ztn)
         sv("archiv", e.archiv)
         sv("aktueller_ek", e.aktueller_ek if e.aktueller_ek else "")
-        sv("geplanter_uvp", e.geplanter_uvp if e.geplanter_uvp else "")
-        sv("aktionspreis", e.aktionspreis if e.aktionspreis else "")
         sv("ek_fob_dollar", e.ek_fob_dollar if e.ek_fob_dollar else "")
         sv("ek_fob_rmb", e.ek_fob_rmb if e.ek_fob_rmb else "")
         sv("ek_fob_euro", e.ek_fob_euro if e.ek_fob_euro else "")
@@ -234,8 +247,6 @@ class FobFormDialog:
             cm=gs("cm"),
             aktuelle_ztn=gs("aktuelle_ztn"),
             aktueller_ek=gf("aktueller_ek"),
-            geplanter_uvp=gf("geplanter_uvp"),
-            aktionspreis=gf("aktionspreis"),
             ek_fob_dollar=gf("ek_fob_dollar"),
             ek_fob_rmb=gf("ek_fob_rmb"),
             ek_fob_euro=gf("ek_fob_euro"),
@@ -261,9 +272,7 @@ class FobFormDialog:
                 f"Rekla: {calc['reklakosten']:.4f}   "
                 f"Kubik: {calc['kubikkosten']:.4f}   "
                 f"Zoll: {calc['zollkosten']:.4f}",
-                f"NEUER EK: {calc['neuer_ek']:.4f} €   "
-                f"Marge UVP: {calc['marge_uvp']*100:.1f}%   "
-                f"Marge Aktion: {calc['marge_aktion']*100:.1f}%",
+                f"NEUER EK: {calc['neuer_ek']:.4f} €",
             ]
             self._preview_text.set("\n".join(lines))
         except Exception:
@@ -273,53 +282,77 @@ class FobFormDialog:
     # Article lookup / auto-fill
     # ------------------------------------------------------------------
 
+    def _lock_master_fields(self):
+        for w in self._master_data_widgets.values():
+            w.config(state="disabled")
+
+    def _unlock_master_fields(self):
+        for w in self._master_data_widgets.values():
+            w.config(state="normal")
+
+    def _artnr_keyrelease(self, event=None):
+        from src.services.article_service import ArticleService
+        typed = self._vars["artnr"].get().strip().upper()
+        if not typed or not ArticleService.is_loaded():
+            self._artnr_combo["values"] = []
+            return
+        all_artnrs = sorted(ArticleService._cache.keys())
+        matches = [a for a in all_artnrs if a.upper().startswith(typed)][:50]
+        self._artnr_combo["values"] = matches
+        if matches:
+            try:
+                self._artnr_combo.event_generate("<Down>")
+            except Exception:
+                pass
+
     def _lookup_article(self):
         from src.services.article_service import ArticleService
+        from src.utils.constants import DUMMY_ARTNR
+
         artnr = self._vars.get("artnr", tk.StringVar()).get().strip()
+
+        # Empty field → reset everything
         if not artnr:
+            self._lookup_status.set("")
+            self._lookup_status_label.config(foreground="#888888")
+            self._unlock_master_fields()
+            return
+
+        # Dummy artnr → all fields freely editable
+        if artnr.upper() == DUMMY_ARTNR.upper():
+            self._lookup_status.set("Dummy – alle Felder editierbar")
+            self._lookup_status_label.config(foreground="#888888")
+            self._unlock_master_fields()
+            return
+
+        # No ArticleService loaded → no validation
+        if not ArticleService.is_loaded():
             self._lookup_status.set("")
             return
 
         article = ArticleService.lookup(artnr)
         if article is None:
-            if ArticleService.is_loaded():
-                self._lookup_status.set("Nicht in Artikelliste")
-            else:
-                self._lookup_status.set("")
+            self._lookup_status.set("✗ Nicht gefunden")
+            self._lookup_status_label.config(foreground="#CC0000")
+            self._unlock_master_fields()
             return
 
-        # Auto-fill: only fill fields that are currently empty
-        _str_fields = [
-            ("bezeichnung",    "bezeichnung"),
-            ("lieferant",      "lieferant"),
-            ("warengruppe",    "warengruppe"),
-            ("cm",             "cm"),
-            ("aktuelle_ztn",   "aktuelle_ztn"),
-        ]
-        _float_fields = [
-            ("aktueller_ek",   "aktueller_ek"),
-            ("geplanter_uvp",  "geplanter_uvp"),
-        ]
-
-        filled = []
-        for form_key, article_key in _str_fields:
-            val = article.get(article_key, "")
+        # Article found: fill fields (always overwrite) + lock
+        self._unlock_master_fields()
+        _str_fields = ["bezeichnung", "lieferant", "warengruppe", "cm", "aktuelle_ztn"]
+        _float_fields = ["aktueller_ek"]
+        for key in _str_fields:
+            val = article.get(key, "")
             if val:
-                v = self._vars.get(form_key)
-                if v and not v.get().strip():
-                    v.set(val)
-                    filled.append(form_key)
-
-        for form_key, article_key in _float_fields:
-            val = article.get(article_key, "")
+                self._vars[key].set(val)
+        for key in _float_fields:
+            val = article.get(key, "")
             if val:
-                v = self._vars.get(form_key)
-                if v and not v.get().strip():
-                    v.set(val)
-                    filled.append(form_key)
-
+                self._vars[key].set(val)
+        self._lock_master_fields()
         bez = article.get("bezeichnung", artnr)
         self._lookup_status.set(f"✓ {bez}")
+        self._lookup_status_label.config(foreground="#2B7A0B")
         self._update_preview()
 
     # ------------------------------------------------------------------
@@ -327,6 +360,9 @@ class FobFormDialog:
     # ------------------------------------------------------------------
 
     def _save(self):
+        from src.services.article_service import ArticleService
+        from src.utils.constants import DUMMY_ARTNR
+
         artnr = self._vars.get("artnr", tk.StringVar()).get().strip()
         bezeichnung = self._vars.get("bezeichnung", tk.StringVar()).get().strip()
         lieferant = self._vars.get("lieferant", tk.StringVar()).get().strip()
@@ -341,6 +377,29 @@ class FobFormDialog:
         if not lieferant:
             messagebox.showwarning("Pflichtfeld", "Lieferant darf nicht leer sein.",
                                    parent=self.dialog)
+            return
+
+        # Validate: duplicate artnr (except DUMMY_ARTNR, which may appear multiple times)
+        if artnr.upper() != DUMMY_ARTNR.upper():
+            exclude_id = self._entry.id if self._entry else ""
+            if self._svc.artnr_exists(artnr, exclude_id=exclude_id):
+                messagebox.showwarning(
+                    "Artikelnummer bereits vorhanden",
+                    f"Die Artikelnummer '{artnr}' ist bereits in der FOB-Kalkulation eingetragen.\n"
+                    "Jede Artikelnummer darf nur einmal verwendet werden.",
+                    parent=self.dialog)
+                return
+
+        # Validate: unknown artnr (only when ArticleService is loaded and not dummy)
+        if (artnr.upper() != DUMMY_ARTNR.upper()
+                and ArticleService.is_loaded()
+                and ArticleService.lookup(artnr) is None):
+            messagebox.showwarning(
+                "Ungültige Artikelnummer",
+                f"'{artnr}' wurde nicht in der Artikelliste gefunden.\n"
+                "Bitte eine gültige Artikelnummer eingeben oder "
+                f"'{DUMMY_ARTNR}' für eine freie Kalkulation verwenden.",
+                parent=self.dialog)
             return
 
         entry = self._build_entry_from_form()

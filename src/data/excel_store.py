@@ -191,8 +191,6 @@ class ExcelStore:
                 cm=str(data.get("cm", "") or ""),
                 aktuelle_ztn=str(data.get("aktuelle_ztn", "") or ""),
                 aktueller_ek=safe_float(data.get("aktueller_ek")),
-                geplanter_uvp=safe_float(data.get("geplanter_uvp")),
-                aktionspreis=safe_float(data.get("aktionspreis")),
                 ek_fob_dollar=safe_float(data.get("ek_fob_dollar")),
                 ek_fob_rmb=safe_float(data.get("ek_fob_rmb")),
                 ek_fob_euro=safe_float(data.get("ek_fob_euro")),
@@ -217,8 +215,8 @@ class ExcelStore:
         for e in entries:
             ws.append([
                 e.id, e.artnr, e.bezeichnung, e.lieferant, e.warengruppe,
-                e.cm, e.aktuelle_ztn, e.aktueller_ek, e.geplanter_uvp,
-                e.aktionspreis, e.ek_fob_dollar, e.ek_fob_rmb, e.ek_fob_euro,
+                e.cm, e.aktuelle_ztn, e.aktueller_ek,
+                e.ek_fob_dollar, e.ek_fob_rmb, e.ek_fob_euro,
                 e.produktionszeit, e.kubikmeter, e.lcl, e.container_20,
                 e.container_40hc, e.zollsatz, e.sonder_toolingkosten, e.archiv,
                 e.price_history,

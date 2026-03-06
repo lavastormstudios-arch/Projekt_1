@@ -12,8 +12,6 @@ class FobEntry:
     cm: str = ""
     aktuelle_ztn: str = ""
     aktueller_ek: float = 0.0
-    geplanter_uvp: float = 0.0
-    aktionspreis: float = 0.0
     ek_fob_dollar: float = 0.0
     ek_fob_rmb: float = 0.0
     ek_fob_euro: float = 0.0

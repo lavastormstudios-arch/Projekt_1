@@ -56,8 +56,6 @@ class FobEntryModel(Base):
     cm = Column(String, default="")
     aktuelle_ztn = Column(String, default="")
     aktueller_ek = Column(Float, default=0.0)
-    geplanter_uvp = Column(Float, default=0.0)
-    aktionspreis = Column(Float, default=0.0)
     ek_fob_dollar = Column(Float, default=0.0)
     ek_fob_rmb = Column(Float, default=0.0)
     ek_fob_euro = Column(Float, default=0.0)

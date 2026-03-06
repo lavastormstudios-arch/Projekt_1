@@ -130,20 +130,6 @@ class FobService:
             + sonder_pro_stueck
         )
 
-        # M: Marge UVP
-        if entry.geplanter_uvp > 0:
-            uvp_netto = entry.geplanter_uvp / 1.19
-            marge_uvp = (uvp_netto - neuer_ek) / uvp_netto if uvp_netto != 0 else 0.0
-        else:
-            marge_uvp = 0.0
-
-        # O: Marge Aktionspreis
-        if entry.aktionspreis > 0:
-            aktion_netto = entry.aktionspreis / 1.19
-            marge_aktion = (aktion_netto - neuer_ek) / aktion_netto if aktion_netto != 0 else 0.0
-        else:
-            marge_aktion = 0.0
-
         return {
             "ek_in_eur": ek_in_eur,
             "finanzierungskosten": finanzierungskosten,
@@ -152,8 +138,6 @@ class FobService:
             "kubikkosten": kubikkosten,
             "zollkosten": zollkosten,
             "neuer_ek": neuer_ek,
-            "marge_uvp": marge_uvp,
-            "marge_aktion": marge_aktion,
         }
 
     # ------------------------------------------------------------------
@@ -171,6 +155,14 @@ class FobService:
             if e.id == entry_id:
                 return e
         return None
+
+    def artnr_exists(self, artnr: str, exclude_id: str = "") -> bool:
+        """Return True if *artnr* is already used by another entry."""
+        key = artnr.strip().upper()
+        for e in self._store.load_fob_entries():
+            if e.artnr.strip().upper() == key and e.id != exclude_id:
+                return True
+        return False
 
     def add(self, entry: FobEntry):
         if not entry.id:
@@ -233,8 +225,6 @@ class FobService:
             "cm":                     ["cm"],
             "aktuelle_ztn":           ["aktuelle ztn", "ztn"],
             "aktueller_ek":           ["aktueller ek", "ek", "einkaufspreis"],
-            "geplanter_uvp":          ["geplanter uvp", "uvp"],
-            "aktionspreis":           ["aktionspreis", "aktion"],
             "ek_fob_dollar":          ["ek fob dollar", "ek fob $", "fob dollar", "fob $"],
             "ek_fob_rmb":             ["ek fob rmb", "fob rmb", "ek fob ¥"],
             "produktionszeit":        ["produktionszeit", "prod.zeit", "produktionszeit in tage"],
@@ -345,8 +335,6 @@ class FobService:
             assign_str("cm")
             assign_str("aktuelle_ztn")
             assign_float("aktueller_ek")
-            assign_float("geplanter_uvp")
-            assign_float("aktionspreis")
             assign_float("ek_fob_dollar")
             assign_float("ek_fob_rmb")
             assign_int("produktionszeit")

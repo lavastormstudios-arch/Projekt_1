@@ -9,12 +9,13 @@ MODULES = ["WKZ & Bonus", "Lieferantenmanagement", "FOB-Kalkulation"]
 FOB_KALKULATION_FILE = os.path.join(DATA_DIR, "fob_kalkulation.xlsx")
 FOB_COLUMNS = [
     "id", "artnr", "bezeichnung", "lieferant", "warengruppe", "cm",
-    "aktuelle_ztn", "aktueller_ek", "geplanter_uvp", "aktionspreis",
+    "aktuelle_ztn", "aktueller_ek",
     "ek_fob_dollar", "ek_fob_rmb", "ek_fob_euro", "produktionszeit", "kubikmeter",
     "lcl", "container_20", "container_40hc", "zollsatz",
     "sonder_toolingkosten", "archiv", "price_history",
 ]
 ACTION_PERMISSIONS = ["can_edit", "can_delete", "can_invoice", "can_export", "can_import", "is_admin"]
+DUMMY_ARTNR = "MUSTER"
 ENTRIES_FILE = os.path.join(DATA_DIR, "entries.xlsx")
 SUPPLIERS_FILE = os.path.join(DATA_DIR, "suppliers.xlsx")
 

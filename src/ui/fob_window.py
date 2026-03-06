@@ -74,7 +74,13 @@ class FobWindow:
             ttk.Button(toolbar, text="Neuer Preis",
                        command=self._new_prices).pack(side=tk.LEFT, padx=2)
 
-        if self.permissions and self.permissions.can_delete:
+        _delete_roles = {"Admin", "Abteilungsleiter", "Teamleiter"}
+        _user_role = self.current_user.role if self.current_user else ""
+        _can_delete = (
+            (self.permissions and self.permissions.can_delete)
+            and _user_role in _delete_roles
+        )
+        if _can_delete:
             ttk.Button(toolbar, text="Löschen",
                        command=self._delete_entry).pack(side=tk.LEFT, padx=2)
 

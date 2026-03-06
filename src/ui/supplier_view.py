@@ -95,17 +95,6 @@ class SupplierPage:
         vsb.pack(side=tk.RIGHT, fill=tk.Y)
         self.tree.bind("<<TreeviewSelect>>", self._on_supplier_select)
 
-        # Supplier CRUD buttons (shown only with edit/delete rights)
-        supplier_btn_frame = ttk.Frame(left)
-        supplier_btn_frame.pack(fill=tk.X, padx=10, pady=(0, 6))
-        if self._can("can_edit"):
-            ttk.Button(supplier_btn_frame, text="Neu",
-                       command=self._new_supplier).pack(side=tk.LEFT, padx=2)
-            ttk.Button(supplier_btn_frame, text="Bearbeiten",
-                       command=self._edit_supplier).pack(side=tk.LEFT, padx=2)
-        if self._can("can_delete"):
-            ttk.Button(supplier_btn_frame, text="Löschen",
-                       command=self._delete_supplier).pack(side=tk.LEFT, padx=2)
 
         # ── Right pane ─────────────────────────────────────────────────
         right = ttk.Frame(paned)
